@@ -5,20 +5,20 @@
 
 .. image:: _static/logo-white.svg
 
-molecuLearn (ML)
+molecuLearn
 ================
 
 .. container:: .large
 
-   The objective of molecuLearn is to extract key patterns and molecular insights
+   The objective of molecuLearn (mL) is to extract key patterns and molecular insights
    from ab-initio molecular dynamics (AIMD) trajectories.
-   molecuLearn is a Python package.
+   mL is a Python package.
 
 
 .. container:: .buttons
 
    `Docs <getting_started.html>`_
-   `GitHub <https://github.com/davidkastner/molecuLearn>`_
+   `GitHub <https://github.com/davidkastner/moleculearn>`_
 
 .. toctree::
    :maxdepth: 0

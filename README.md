@@ -1,7 +1,8 @@
+![Graphical Summary of README](docs/_static/header.webp)
 molecuLearn
 ==============================
 [//]: # (Badges)
-[![GitHub Actions Build Status](https://github.com/REPLACE_WITH_OWNER_ACCOUNT/molecuLearn/workflows/CI/badge.svg)](https://github.com/REPLACE_WITH_OWNER_ACCOUNT/molecuLearn/actions?query=workflow%3ACI)
+[![GitHub Actions Build Status](https://github.com/davidkastner/molecuLearn/workflows/CI/badge.svg)](https://github.com/davidkastner/molecuLearn/actions?query=workflow%3ACI)
 [![Documentation Status](https://readthedocs.org/projects/moleculearn/badge/?version=latest)](https://moleculearn.readthedocs.io/en/latest/?badge=latest)
 
 
@@ -22,7 +23,7 @@ molecuLearn
 
 
 ## 1. Overview
-The objective of molecuLearn (ML), is to facilitate the application of machine learning to extract patterns from ab-initio molecular dynamics simulations.
+The objective of molecuLearn (mL), is to facilitate the application of machine learning to extract patterns from ab-initio molecular dynamics simulations.
 
 
 ## 2. Installation

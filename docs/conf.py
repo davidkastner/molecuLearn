@@ -23,8 +23,7 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 
 project = 'molecuLearn'
-copyright = ("2023, David W. Kastner. Project structure based on the "
-             "Computational Molecular Science Python Cookiecutter version 1.1")
+copyright = ("2023, David W. Kastner. Computational Molecular Science version 1.1")
 author = 'David W. Kastner'
 
 # The short X.Y version
