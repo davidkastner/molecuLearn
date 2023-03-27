@@ -18,49 +18,56 @@ We provide two YAML files. The dev version contains additional packages for code
 Compatibility is automatically tested for python versions 3.8 and higher.
 If you are only going to be using the package run:
 
-```bash
-conda env create -f environment.yml
-source activate ml
-```
+::
+
+    bash
+    conda env create -f environment.yml
+    source activate ml
+
 
 **Setup developing environment**
 To begin working with molecuLearn, first clone the repo and then move into the top-level directory of the package.
 The perform a developer install.
 Remember to update your GitHub [ssh keys](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account).
 
-```bash
-git clone git@github.com:davidkastner/molecuLearn.git
-cd molecuLearn
-python -m pip install -e .
-```
+::
+
+    bash
+    git clone git@github.com:davidkastner/molecuLearn.git
+    cd molecuLearn
+    python -m pip install -e .
 
 
 3 What is included?
 -------------------
 **File structure**
 
-```
-.
-|── cli.py          # Command-line interface entry point
-├── docs            # Readthedocs documentation site
-├── ml              # Directory containing the quantumAllostery modules
-│   ├── process     # Processes raw dynamics data
-│   ├── predict     # Machine learning analysis
-│   ├── manage      # File management functionality and routines
-│   ├── analyze     # Data analysis to combine process and plot routines
-│   └── plot        # Automated plotting and vizualization 
-└── ...
-```
+
+::
+
+    .
+    |── cli.py          # Command-line interface entry point
+    ├── docs            # Readthedocs documentation site
+    ├── ml              # Directory containing the quantumAllostery modules
+    │   ├── process     # Processes raw dynamics data
+    │   ├── predict     # Machine learning analysis
+    │   ├── manage      # File management functionality and routines
+    │   ├── analyze     # Data analysis to combine process and plot routines
+    │   └── plot        # Automated plotting and vizualization 
+    └── ...
+
 
 
 4 Documentation
 ---------------
 Run the following commands to update the ReadTheDocs site:
 
-```bash
-make clean
-make html
-```
+::
+
+    bash
+    make clean
+    make html
+
 
 
 5 Developer guide
@@ -69,13 +76,15 @@ make html
 GitHub refresher for those who would like to contribute
 **Push new changes**
 
-```bash
-git status
-git pull
-git add .
-git commit -m "Change a specific functionality"
-git push -u origin main
-```
+::
+    
+    bash
+    git status
+    git pull
+    git add .
+    git commit -m "Change a specific functionality"
+    git push -u origin main
+
 
 
 Copyright
