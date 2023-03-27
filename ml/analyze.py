@@ -1,4 +1,4 @@
-"""Provide the primary functions."""
+"""Analyze ml predictions."""
 
 
 def canvas(with_attribution=True):

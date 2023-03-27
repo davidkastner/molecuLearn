@@ -13,11 +13,11 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
 # Incase the project was not installed
+import revitron_sphinx_theme
+# import ml
 import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
-
-import ml
 
 
 # -- Project information -----------------------------------------------------
@@ -43,6 +43,7 @@ release = ''
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'autoapi.extension',
     'sphinx.ext.autosummary',
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
@@ -50,9 +51,20 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.intersphinx',
     'sphinx.ext.extlinks',
+    'revitron_sphinx_theme',
 ]
 
 autosummary_generate = True
+autoapi_type = 'python'
+autoapi_dirs = ['../ml']
+autoapi_ignore = ["*/tests/*",
+                  "*_version.py"]
+
+autoapi_options = ['members',
+                   'undoc-members',
+                   'show-inheritance',
+                   'show-module-summary',
+                   'imported-members']
 napoleon_google_docstring = False
 napoleon_use_param = False
 napoleon_use_ivar = True
@@ -74,7 +86,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -90,18 +102,48 @@ pygments_style = 'default'
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'revitron_sphinx_theme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+html_theme_options = {
+    'color_scheme': '',
+    'canonical_url': '',
+    'analytics_id': 'UA-XXXXXXX-1',
+    'style_external_links': False,
+    'collapse_navigation': True,
+    'sticky_navigation': True,
+    'navigation_depth': 4,
+    'includehidden': True,
+    'titles_only': False,
+    'github_url': 'https://github.com/davidkastner/moleculearn',
+    'logo_mobile': 'logo-white.svg',
+    'color_scheme': 'dark'
+}
+
+html_logo = '_static/logo-white.svg'
+html_title = 'molecuLearn'
+html_favicon = '_static/favicon.ico'
+
+html_context = {
+    'landing_page': {
+        'menu': [{
+            'title': 'molecuLearn',
+            'url': 'https://moleculearn.readthedocs.io/'
+        }, {
+            'title': 'User Guide',
+            'url': 'https://moleculearn.readthedocs.io/en/latest/getting_started.html'
+        }]
+    }
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+html_logo = '_static/logo-white.svg'
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
