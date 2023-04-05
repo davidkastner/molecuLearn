@@ -52,3 +52,22 @@ def pairwise_distances(structure):
         distances[(r1.get_resname(), r1.id[1], r2.get_resname(), r2.id[1])] = distance
     return distances
 
+def trajectory_pairwise_distances(frames):
+    """
+    Calculate pairwise distances for all frames in a PDB trajectory.
+    
+    Parameters
+    ----------
+    frames : list
+        A list of PDB structures representing individual frames.
+    
+    Returns
+    -------
+    pd.DataFrame
+        Pandas DataFrame with rows as frames and columns as pairwise distances.
+
+    """
+    all_distances = [pairwise_distances(frame) for frame in frames]
+    df = pd.DataFrame(all_distances)
+    return df
+
