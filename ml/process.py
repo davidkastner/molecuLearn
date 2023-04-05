@@ -26,3 +26,29 @@ def read_trajectory_pdb(file_path):
     parser = PDBParser()
     frames = [parser.get_structure("Frame", pdb_string) for pdb_string in pdb_strings if pdb_string.strip()]
     return frames
+
+def pairwise_distances(structure):
+    """
+    Calculate pairwise distances between the center of mass of amino acids in a PDB structure.
+    
+    Parameters
+    ----------
+    structure : Bio.PDB.Structure.Structure
+        The PDB structure object.
+    
+    Returns
+    -------
+    dict
+        A dictionary with keys as tuples of residue pairs and values as their pairwise distances.
+
+    """
+    residues = list(structure.get_residues())
+    residue_pairs = combinations(residues, 2)
+    distances = {}
+    for r1, r2 in residue_pairs:
+        com1 = calc_center_of_mass(r1)
+        com2 = calc_center_of_mass(r2)
+        distance = calc_mass.distance(com1, com2)
+        distances[(r1.get_resname(), r1.id[1], r2.get_resname(), r2.id[1])] = distance
+    return distances
+
