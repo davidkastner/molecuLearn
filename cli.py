@@ -11,36 +11,28 @@ print("Documenation: https://moleculearn.readthedocs.io\n")
 import click
 
 @click.command()
-@click.option("--first_action", "-a", is_flag=True, help="Place holder description.")
-@click.option("--second_action", "-b", is_flag=True, help="Place holder description.")
+@click.option("--pairwise_distances", "-d", is_flag=True, help="Compute pairwise distances.")
 def cli(
-    first_action,
-    second_action,
+    pairwise_distances,
     ):
     """
     The overall command-line interface (CLI) entry point.
     The CLI interacts with the rest of the package.
 
-    A complete reference of quantumAllostery functionality.
-    This is advantagous because it quickly introduces so quantumAllostery.
+    A complete reference of molecuLearn functionality.
+    This is advantagous because it quickly introduces so molecuLearn.
     Specificaly, to the complete scope of available functionality.
     It also improves long-term maintainability and readability.
 
     """
     
-    if first_action:
-        click.echo("> Description for user of what is being performed:")
+    if pairwise_distances:
+        click.echo("> Compute pairwise distances features for a trajectory:")
         click.echo("> Loading...")
         import ml.process
-        # Run a function from the molecuLearn package
-
-
-    elif second_action:
-        click.echo("> Combine trajectories from multiple replicates:")
-        click.echo("> Loading...")
-        import ml.plot
-        # Run a function from the molecuLearn package
-
+        # Compute the pairwise distances
+        pdb_traj_path = "mc6_geometry.pdb"
+        pairwise_distances_csv(pdb_traj_path)
 
     else:
         click.echo("No functionality was requested.\nTry --help.")
