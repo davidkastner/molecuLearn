@@ -71,3 +71,27 @@ def trajectory_pairwise_distances(frames):
     df = pd.DataFrame(all_distances)
     return df
 
+def pairwise_distances_csv(pdb_trajectory_path):
+    """
+    Generates a csv containing all the pairwise distances for a PDB trajectory.
+
+    Parameters
+    ----------
+    pdb_trajectory_path: str
+        The path to the PDB trajectory file
+
+    """
+    
+    # Read and separate the PDB trajectory into frames
+    frames = read_trajectory_pdb(pdb_trajectory_file)
+    
+    # Calculate pairwise distances for each frame and store them in a DataFrame
+    pairwise_distances_df = trajectory_pairwise_distances(frames)
+    
+    # Save the DataFrame to a CSV file
+    pairwise_distances_df.to_csv("pairwise_distances.csv", index=False)
+
+
+if __name__ == "__main__":
+    # Execute when run as a script
+    pairwise_distances_csv("path/to/your/pdb_trajectory_file.pdb")
