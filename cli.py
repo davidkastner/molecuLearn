@@ -32,7 +32,9 @@ def cli(
         import ml.process
         # Compute the pairwise distances
         pdb_traj_path = "mc6_geometry.pdb"
-        pairwise_distances_csv(pdb_traj_path)
+        print(f"   > Assuming the PDB trajectory has name {pdb_traj_path}")
+        ml.manage.check_file_exists(pdb_traj_path)
+        ml.process.pairwise_distances_csv(pdb_traj_path)
 
     else:
         click.echo("No functionality was requested.\nTry --help.")
