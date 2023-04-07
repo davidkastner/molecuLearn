@@ -49,6 +49,15 @@ cd molecuLearn
 python -m pip install -e .
 ```
 
+### Command-line interface
+All of the functionality of molecuLearn has been organized into a command-line interface (CLI).
+With one additional step, the CLI can be called from anywhere.
+We just have to setup a shortcut command in your BASHRC.
+Add the following line to your BASHRC:
+```bash
+alias ml='python /path/to/the/molecuLean/cli.py
+```
+
 
 ## 3. What is included?
 ### File structure
