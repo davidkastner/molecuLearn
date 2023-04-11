@@ -2,8 +2,7 @@
 
 import pandas as pd
 import numpy as np
-from Bio.PDB import PDBParser, Vector
-from Bio.PDB.ResidueDepth import mass
+from Bio.PDB import PDBParser, Vector, Atom
 from itertools import combinations
 
 
@@ -46,7 +45,7 @@ def center_of_mass(residue):
     total_mass = 0
     mass_center = Vector(0, 0, 0)
     for atom in residue.get_atoms():
-        atom_mass = mass.get(atom.element, 12.0)  # default to 12.0 if element not in mass dictionary
+        atom_mass = Atom.atom_masses.get(atom.element, 12.0)  # default to 12.0 if element not in atom_masses dictionary
         mass_center += atom.vector * atom_mass
         total_mass += atom_mass
     return tuple(mass_center / total_mass)
@@ -112,7 +111,7 @@ def pairwise_distances_csv(pdb_traj_path):
     """
     
     # Read and separate the PDB trajectory into frames
-    frames = read_trajectory_pdb(pdb_traj_file)
+    frames = read_trajectory_pdb(pdb_traj_path)
     
     # Calculate pairwise distances for each frame and store them in a DataFrame
     pairwise_distances_df = trajectory_pairwise_distances(frames)

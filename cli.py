@@ -30,6 +30,7 @@ def cli(
         click.echo("> Compute pairwise distances features for a trajectory:")
         click.echo("> Loading...")
         import ml.process
+        import ml.manage
         # Compute the pairwise distances
         pdb_traj_path = "mc6_geometry.pdb"
         print(f"   > Assuming the PDB trajectory has name {pdb_traj_path}")
