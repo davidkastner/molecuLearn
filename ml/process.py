@@ -2,30 +2,30 @@
 
 import pandas as pd
 import numpy as np
+import io
 from Bio.PDB import PDBParser, Vector, Atom
 from itertools import combinations
 
 
 def read_trajectory_pdb(file_path):
     """
-    Read a trajectory PDB file and separate it into individual frames.
+    Read a PDB trajectory file and return a list of PDB structure objects.
     
     Parameters
     ----------
     file_path : str
-        Path to the PDB trajectory file.
+        The path to the PDB trajectory file.
     
     Returns
     -------
     list
-        A list of PDB structures representing individual frames.
-
+        A list of Bio.PDB.Structure.Structure objects, one for each frame in the trajectory.
     """
     with open(file_path, 'r') as f:
-        content = f.read()
-    pdb_strings = content.split("END")
-    parser = PDBParser()
-    frames = [parser.get_structure("Frame", pdb_string) for pdb_string in pdb_strings if pdb_string.strip()]
+        pdb_string = f.read()
+    pdb_strings = pdb_string.split("END")
+    parser = PDBParser(QUIET=True)
+    frames = [parser.get_structure("Frame", io.StringIO(pdb_string)) for pdb_string in pdb_strings if pdb_string.strip()]
     return frames
 
 def center_of_mass(residue):
