@@ -4,6 +4,7 @@ import os
 import sys
 import numpy as np
 
+
 def check_file_exists(filename):
     """
     Check if a file with the given name exists. If it does not exist, the function ends the current
@@ -31,7 +32,9 @@ def check_file_exists(filename):
     # Check if the file exists
     if not os.path.isfile(filename):
         # Raise a FileNotFoundError with a custom error message
-        raise FileNotFoundError(f"File '{filename}' does not exist. Please provide a valid file name.")
+        raise FileNotFoundError(
+            f"File '{filename}' does not exist. Please provide a valid file name."
+        )
     else:
         print(f"File '{filename}' exists.")
         return None
