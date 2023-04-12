@@ -33,8 +33,8 @@ def check_file_exists(filename):
     if not os.path.isfile(filename):
         # Raise a FileNotFoundError with a custom error message
         raise FileNotFoundError(
-            f"File '{filename}' does not exist. Please provide a valid file name."
+            f"   > File '{filename}' does not exist. Please provide a valid file name."
         )
     else:
-        print(f"File '{filename}' exists.")
+        print(f"   > File '{filename}' exists.")
         return None

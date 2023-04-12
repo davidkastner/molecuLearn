@@ -1,9 +1,9 @@
 """Command-line interface (CLI) entry point."""
 
 # Print first to welcome the user while it waits to load the modules
-print("\n.-------------------------------------------.")
+print("\n.-------------------------------------.")
 print("| WELCOME TO THE MOLECULEARN (ML) CLI |")
-print(".-------------------------------------------.")
+print(".-------------------------------------.")
 print("Default programmed actions for the molecuLearn package.")
 print("GitHub: https://github.com/davidkastner/moleculearn")
 print("Documenation: https://moleculearn.readthedocs.io\n")
@@ -32,7 +32,7 @@ def cli(
         import ml.process
         import ml.manage
         # Compute the pairwise distances
-        pdb_traj_path = "mc6_geometry.pdb"
+        pdb_traj_path = input("   > What is the name of your PDB? ")
         print(f"   > Assuming the PDB trajectory has name {pdb_traj_path}")
         ml.manage.check_file_exists(pdb_traj_path)
         ml.process.pairwise_distances_csv(pdb_traj_path)
