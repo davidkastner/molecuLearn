@@ -31,6 +31,7 @@ def cli(
         click.echo("> Loading...")
         import ml.process
         import ml.manage
+        
         # Compute the pairwise distances
         pdb_traj_path = input("   > What is the name of your PDB? ")
         print(f"   > Assuming the PDB trajectory has name {pdb_traj_path}")

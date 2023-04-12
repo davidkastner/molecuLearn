@@ -11,34 +11,38 @@ from itertools import combinations
 def read_trajectory_pdb(file_path):
     """
     Read a PDB trajectory file and return a list of PDB structure objects.
-    
+
     Parameters
     ----------
     file_path : str
         The path to the PDB trajectory file.
-    
+
     Returns
     -------
     list
         A list of Bio.PDB.Structure.Structure objects, one for each frame in the trajectory.
     """
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         pdb_string = f.read()
     pdb_strings = pdb_string.split("END")
     parser = PDBParser(QUIET=True)
-    frames = [parser.get_structure("Frame", io.StringIO(pdb_string)) for pdb_string in pdb_strings if pdb_string.strip()]
+    frames = [
+        parser.get_structure("Frame", io.StringIO(pdb_string))
+        for pdb_string in pdb_strings
+        if pdb_string.strip()
+    ]
     return frames
 
 
 def center_of_mass(residue):
     """
     Calculate the center of mass of a residue.
-    
+
     Parameters
     ----------
     residue : Bio.PDB.Residue.Residue
         A residue object.
-    
+
     Returns
     -------
     Vector
@@ -48,7 +52,9 @@ def center_of_mass(residue):
     mass_center = Vector(0, 0, 0)
     for atom in residue.get_atoms():
         atom_mass = atom.mass
-        mass_center += Vector(*atom.coord) * Vector(atom_mass, atom_mass, atom_mass)  # Correctly multiply the Vector with the scalar
+        mass_center += Vector(*atom.coord) * Vector(
+            atom_mass, atom_mass, atom_mass
+        )  # Correctly multiply the Vector with the scalar
         total_mass += atom_mass
     return mass_center / total_mass
 
@@ -56,12 +62,12 @@ def center_of_mass(residue):
 def pairwise_distances(structure):
     """
     Calculate pairwise distances between the center of mass of amino acids in a PDB structure.
-    
+
     Parameters
     ----------
     structure : Bio.PDB.Structure.Structure
         The PDB structure object.
-    
+
     Returns
     -------
     dict
@@ -81,12 +87,12 @@ def pairwise_distances(structure):
 def trajectory_pairwise_distances(frames):
     """
     Calculate pairwise distances for all frames in a PDB trajectory.
-    
+
     Parameters
     ----------
     frames : list
         A list of PDB structures representing individual frames.
-    
+
     Returns
     -------
     pd.DataFrame
@@ -121,7 +127,7 @@ def pairwise_distances_csv(pdb_traj_path):
 
     # Read and separate the PDB trajectory into frames
     frames = read_trajectory_pdb(pdb_traj_path)
-    
+
     # Get the number of frames in the trajectory
     frame_count = len(frames)
 
@@ -130,7 +136,7 @@ def pairwise_distances_csv(pdb_traj_path):
 
     # Get the number of residue pairs (columns in the DataFrame)
     res_pairs_count = len(pairwise_distances_df.columns)
-    
+
     # Calculate the total number of pairwise distances across all frames
     dist_count = frame_count * res_pairs_count
 
@@ -142,13 +148,14 @@ def pairwise_distances_csv(pdb_traj_path):
     total_time = round(time.time() - start_time, 3)
     print(
         f"""
-        \t----------------------------ALL RUNS END----------------------------
-        \tRESULT: {dist_count} distances for {res_pairs_count} residue pairs across {frame_count} frames.
-        \tOUTPUT: Pairwise distance CSV saved to {out_file_name}.
-        \tTIME: Total execution time: {total_time} seconds.
-        \t--------------------------------------------------------------------\n
+           ------------------------PAIRWISE DISTANCES END------------------------
+           RESULT: {dist_count} distances for {res_pairs_count} residue pairs across {frame_count} frames.
+           OUTPUT: Pairwise distance CSV saved to {out_file_name}.
+           TIME: Total execution time: {total_time} seconds.
+           --------------------------------------------------------------------\n
         """
     )
+
 
 if __name__ == "__main__":
     # Execute when run as a script
