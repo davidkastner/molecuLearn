@@ -30,8 +30,7 @@ The objective of molecuLearn (mL), is to facilitate the application of machine l
 Install the package by running the follow commands inside the repository. This will perform a developmental version install. It is good practice to do this inside of a virtual environment. A yaml environmental file has been created to automate the installation of dependencies.
 
 ### Creating python environment
-All the dependencies can be loaded together using the prebuilt environment.yml or environment_dev.yml files.
-We provide two YAML files. The dev version contains additional packages for code maintenance.
+All the dependencies can be loaded together using the prebuilt environment.yml file.
 Compatibility is automatically tested for python versions 3.8 and higher.
 If you are only going to be using the package run:
 ```bash
