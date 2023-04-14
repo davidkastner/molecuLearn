@@ -40,7 +40,7 @@ source activate ml
 
 ### Setup developing environment
 To begin working with molecuLearn, first clone the repo and then move into the top-level directory of the package.
-The perform a developer install.
+Then perform a developer install.
 Remember to update your GitHub [ssh keys](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account).
 ```bash
 git clone git@github.com:davidkastner/molecuLearn.git
