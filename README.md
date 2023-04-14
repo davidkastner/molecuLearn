@@ -88,7 +88,7 @@ make html
 ```bash
 git status
 git pull
-git add .
+git add -A .
 git commit -m "Change a specific functionality"
 git push -u origin main
 ```
