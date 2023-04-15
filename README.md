@@ -11,7 +11,7 @@ molecuLearn
     * Introduction
     * Purpose
 2. **Installation**
-    * Installing quantumAllostery
+    * Installing molecuLearn
     * Prerequisites
 3. **What is included?**
     * File structure
