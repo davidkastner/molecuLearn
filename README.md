@@ -29,15 +29,6 @@ The objective of molecuLearn (mL), is to facilitate the application of machine l
 ## 2. Installation
 Install the package by running the follow commands inside the repository. This will perform a developmental version install. It is good practice to do this inside of a virtual environment. A yaml environmental file has been created to automate the installation of dependencies.
 
-### Creating python environment
-All the dependencies can be loaded together using the prebuilt environment.yml file.
-Compatibility is automatically tested for python versions 3.8 and higher.
-If you are only going to be using the package run:
-```bash
-conda env create -f environment.yml
-source activate ml
-```
-
 ### Setup developing environment
 To begin working with molecuLearn, first clone the repo and then move into the top-level directory of the package.
 Then perform a developer install.
@@ -45,6 +36,15 @@ Remember to update your GitHub [ssh keys](https://docs.github.com/en/authenticat
 ```bash
 git clone git@github.com:davidkastner/molecuLearn.git
 cd molecuLearn
+```
+
+### Creating python environment
+All the dependencies can be loaded together using the prebuilt environment.yml file.
+Compatibility is automatically tested for python versions 3.8 and higher.
+If you are only going to be using the package run:
+```bash
+conda env create -f environment.yml
+conda activate ml # Alternatively you may need source activate ml
 python -m pip install -e .
 ```
 

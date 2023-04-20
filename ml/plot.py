@@ -1,29 +1,30 @@
 """General plotting functions."""
 
+import matplotlib.pyplot as plt
+import seaborn as sn
+from statistics import mean
 
-def canvas(with_attribution=True):
-    """
-    Placeholder function to show example docstring (NumPy format).
+def plot_data(df_charge, df_dist, mimos):
+    fig, ax = plt.subplots(1, 2)
+    ax[0].set_title('distances')
+    ax[1].set_title('charges')
+    for mimo in mimos:
+        avg_dist = [mean(row[1]) for row in df_dist[mimo].iterrows()]
+        avg_charge = [mean(row[1]) for row in df_charge[mimo].iterrows()]
+        ax[0].plot(avg_dist, label=mimo)
+        ax[1].plot(avg_charge, label=mimo)
+    ax[0].legend(loc='upper left')
+    ax[1].legend(loc='upper left')
+    fig.tight_layout()
+    plt.show()
 
-    Replace this function and doc string for your own project.
+def plot_confusion_matrices(cms, mimos):
+    features = ['dist', 'charge']
+    for feature in features:
+        plt.figure()
+        sn.heatmap(cms[feature], annot=True, cmap='coolwarm', fmt='d', cbar=False)
+        plt.title(f'Confusion Matrix for {feature}')
+        plt.xlabel('Predicted')
+        plt.ylabel('True')
+    plt.show()
 
-    Parameters
-    ----------
-    with_attribution : bool, Optional, default: True
-        Set whether or not to display who the quote is from.
-
-    Returns
-    -------
-    quote : str
-        Compiled string including quote and optional attribution.
-    """
-
-    quote = "The code is but a canvas to our imagination."
-    if with_attribution:
-        quote += "\n\t- Adapted from Henry David Thoreau"
-    return quote
-
-
-if __name__ == "__main__":
-    # Do something if this file is invoked on its own
-    print(canvas())
