@@ -54,7 +54,7 @@ With one additional step, the CLI can be called from anywhere.
 We just have to setup a shortcut command in your BASHRC.
 Add the following line to your BASHRC:
 ```bash
-alias ml='python /path/to/the/molecuLean/cli.py
+alias ml='python /path/to/the/molecuLearn/cli.py
 ```
 
 

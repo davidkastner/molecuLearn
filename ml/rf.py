@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sn
 from statistics import mean
 
-def load_data(mimos):
+def load_data(mimos, data_loc):
     """
     Load data from CSV files for each mimo in the given list.
 
@@ -15,6 +15,8 @@ def load_data(mimos):
     ----------
     mimos : list of str
         List of mimo names.
+    data_loc : str
+        The location of the (e.g, /home/kastner/packages/molecuLearn/ml/data)
 
     Returns
     -------
@@ -30,8 +32,8 @@ def load_data(mimos):
     # Iterate through each mimo in the list
     for mimo in mimos:
         # Load charge and distance data from CSV files and store them in dictionaries
-        df_charge[mimo] = pd.read_csv(f'data/{mimo}_charges.csv')
-        df_dist[mimo] = pd.read_csv(f'data/{mimo}_pairwise_distances.csv')
+        df_charge[mimo] = pd.read_csv(f'{data_loc}/{mimo}_charges.csv')
+        df_dist[mimo] = pd.read_csv(f'{data_loc}/{mimo}_pairwise_distances.csv')
         
     return df_charge, df_dist
 
@@ -165,13 +167,10 @@ def plot_data(df_charge, df_dist, mimos):
     mimos : list
         List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
 
-    Returns
-    -------
-    None
     """
 
     # Create a 1x2 subplot
-    fig, ax = plt.subplots(1, 2)
+    fig, ax = plt.subplots(1, 2, figsize=(12, 4))
 
     # Set titles for each subplot
     ax[0].set_title('distances')
@@ -190,7 +189,8 @@ def plot_data(df_charge, df_dist, mimos):
 
     # Apply tight layout and show the plot
     fig.tight_layout()
-    plt.show()
+    plt.savefig("rf_data.png", bbox_inches="tight", format="png", dpi=300)
+    plt.close()
 
 def plot_confusion_matrices(cms, mimos):
     """
@@ -203,32 +203,57 @@ def plot_confusion_matrices(cms, mimos):
     mimos : list
         List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
 
-    Returns
-    -------
-    None
     """
 
     # Define the features for which confusion matrices will be plotted
     features = ['dist', 'charge']
 
+    # Create a 1x2 subplot for the confusion matrices
+    fig, axs = plt.subplots(1, 2, figsize=(11, 5))
+
     # Loop through each feature and plot its confusion matrix
-    for feature in features:
-        plt.figure()
+    for i, feature in enumerate(features):
         
         # Create a heatmap for the confusion matrix
-        sn.heatmap(cms[feature], annot=True, cmap='coolwarm', fmt='d', cbar=False)
+        sn.heatmap(cms[feature], annot=True, cmap='inferno', fmt='d', cbar=False, ax=axs[i])
         
         # Set title, xlabel, and ylabel for the heatmap
-        plt.title(f'Confusion Matrix for {feature}')
-        plt.xlabel('Predicted')
-        plt.ylabel('True')
+        axs[i].set_title(f'Confusion Matrix for {feature}', fontweight='bold')
+        axs[i].set_xlabel('Predicted', fontweight='bold')
+        axs[i].set_ylabel('True', fontweight='bold')
 
-    # Show the plotted confusion matrices
-    plt.show()
+    # Apply tight layout and save the plotted confusion matrices
+    fig.tight_layout()
+    plt.savefig("rf_cm.png", bbox_inches="tight", format="png", dpi=300)
+    plt.close()
+
+def format_plots() -> None:
+    """
+    General plotting parameters for the Kulik Lab.
+
+    """
+    font = {"family": "sans-serif", "weight": "bold", "size": 10}
+    plt.rc("font", **font)
+    plt.rcParams["xtick.major.pad"] = 5
+    plt.rcParams["ytick.major.pad"] = 5
+    plt.rcParams["axes.linewidth"] = 2
+    plt.rcParams["xtick.major.size"] = 7
+    plt.rcParams["xtick.major.width"] = 2
+    plt.rcParams["ytick.major.size"] = 7
+    plt.rcParams["ytick.major.width"] = 2
+    plt.rcParams["xtick.direction"] = "in"
+    plt.rcParams["ytick.direction"] = "in"
+    plt.rcParams["xtick.top"] = True
+    plt.rcParams["ytick.right"] = True
+    plt.rcParams["svg.fonttype"] = "none"
+
 
 if __name__ == "__main__":
+    # Get datasets
+    format_plots()
     mimos = ['mc6', 'mc6s', 'mc6sa']
-    df_charge, df_dist = load_data(mimos)
+    data_loc = input("   > Where are your data files located? ")
+    df_charge, df_dist = load_data(mimos, data_loc)
     plot_data(df_charge, df_dist, mimos)
 
     # Preprocess the data and split into train and test sets
