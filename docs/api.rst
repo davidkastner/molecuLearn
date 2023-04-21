@@ -7,5 +7,4 @@ API Documentation
 
    ml.analyze
    ml.process
-   ml.predict
-   ml.plot
+   ml.rf
