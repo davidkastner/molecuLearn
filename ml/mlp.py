@@ -7,9 +7,6 @@ import matplotlib.pyplot as plt
 import seaborn as sn
 from statistics import mean
 import torch
-from itertools import cycle
-import shap
-
 
 def gradient_step(model, dataloader, optimizer, device):
     
@@ -209,7 +206,6 @@ def preprocess_data(df_charge, df_dist, mimos, test_frac=0.8):
         "dist": {mimo: np.array(df_dist[mimo]) for mimo in mimos},
         "charge": {mimo: np.array(df_charge[mimo]) for mimo in mimos},
     }
-
     y = {"dist": {}, "charge": {}}
 
     # Assign class labels for each mimo based on the class_assignment dictionary
@@ -310,7 +306,7 @@ def plot_confusion_matrices(cms, mimos):
 
     # Apply tight layout and save the plotted confusion matrices
     fig.tight_layout()
-    plt.savefig("mlp_cm.png", bbox_inches="tight", format="png", dpi=300)
+    plt.savefig("rf_cm.png", bbox_inches="tight", format="png", dpi=300)
     plt.close()
 
 
