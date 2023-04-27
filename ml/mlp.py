@@ -355,8 +355,8 @@ if __name__ == "__main__":
 
     train_sets = {feature : MDDataset(data_split[feature]['X_train'], data_split[feature]['y_train']) for feature in data_split.keys()}
     test_sets = {feature : MDDataset(data_split[feature]['X_test'], data_split[feature]['y_test']) for feature in data_split.keys()}
-    train_loaders = {feature : torch.utils.data.DataLoader(train_sets[feature], batch_size=32) for feature in data_split.keys()}
-    test_loaders = {feature : torch.utils.data.DataLoader(test_sets[feature], batch_size=32) for feature in data_split.keys()}
+    train_loaders = {feature : torch.utils.data.DataLoader(train_sets[feature], batch_size=256) for feature in data_split.keys()}
+    test_loaders = {feature : torch.utils.data.DataLoader(test_sets[feature], batch_size=256) for feature in data_split.keys()}
     
     # dist 
     n_dist = len(train_sets['dist'][0][0])
