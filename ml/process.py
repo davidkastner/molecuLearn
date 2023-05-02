@@ -150,7 +150,7 @@ def pairwise_distances_csv(pdb_traj_path):
         f"""
            ------------------------PAIRWISE DISTANCES END------------------------
            RESULT: {dist_count} distances for {res_pairs_count} residue pairs across {frame_count} frames.
-           OUTPUT: Pairwise distance CSV saved to {out_file_name}.
+           OUTPUT: Pairwise distances saved to {out_file_name}.
            TIME: Total execution time: {total_time} seconds.
            --------------------------------------------------------------------\n
         """
