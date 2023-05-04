@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sn
 from statistics import mean
 import torch
+from pathlib import Path
 
 def gradient_step(model, dataloader, optimizer, device):
     
@@ -346,7 +347,7 @@ if __name__ == "__main__":
     # Get datasets
     format_plots()
     mimos = ["mc6", "mc6s", "mc6sa"]
-    data_loc = "molecuLearn/ml/data" #__file__#input("   > Where are your data files located? ")
+    data_loc = str(Path(__file__).resolve().parent) + "/data" #input("   > Where are your data files located? ")
     df_charge, df_dist = load_data(mimos, data_loc)
     plot_data(df_charge, df_dist, mimos)
 
