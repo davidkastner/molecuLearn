@@ -87,10 +87,8 @@ def cli(
 
         layers = {'dist': (ml.mlp.torch.nn.Linear(n_dist, 128), ml.mlp.torch.nn.ReLU(), 
                   ml.mlp.torch.nn.Linear(128, 128), ml.mlp.torch.nn.ReLU(), 
-                  ml.mlp.torch.nn.Linear(128, 128), ml.mlp.torch.nn.ReLU(), 
                   ml.mlp.torch.nn.Linear(128, 3)),
                   'charge': (ml.mlp.torch.nn.Linear(n_charge, 128), ml.mlp.torch.nn.ReLU(), 
-                  ml.mlp.torch.nn.Linear(128, 128), ml.mlp.torch.nn.ReLU(), 
                   ml.mlp.torch.nn.Linear(128, 128), ml.mlp.torch.nn.ReLU(), 
                   ml.mlp.torch.nn.Linear(128, 3))
                   }
@@ -100,6 +98,7 @@ def cli(
         test_loss, y_true, y_pred_proba, y_pred, cms = ml.mlp.evaluate_model(mlp_cls, test_loader, 'cpu', mimos)
         ml.mlp.plot_roc_curve(y_true, y_pred_proba, mimos)
         ml.mlp.plot_confusion_matrices(cms, mimos)
+        # ml.mlp.shap_analysis(mlp_cls, test_loader)
 
     else:
         click.echo("No functionality was requested.\nTry --help.")
