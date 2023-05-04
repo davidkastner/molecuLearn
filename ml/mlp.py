@@ -9,6 +9,8 @@ import seaborn as sn
 from statistics import mean
 import torch
 from itertools import cycle
+import shap
+
 
 def gradient_step(model, dataloader, optimizer, device):
 
@@ -266,9 +268,14 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.6, te
     """
 
     # From df_dist, drop any distances between amino acids if either one of them has the mutants Glu3, Aib20, or Aib23.
-    # for mimo in mimos:
-    #     df_dist[mimo] = df_dist[mimo].loc[:, ~df_dist[mimo].columns.str.contains('GLU3|AIB20|AIB23')]
-    #     print(df_dist[mimo].shape)
+    for mimo in mimos:
+        if mimo == "mc6":
+            df_dist[mimo] = df_dist[mimo].loc[:, ~df_dist[mimo].columns.str.contains('GLU3|GLN20|SER23')]
+        elif mimo == "mc6s":
+            df_dist[mimo] = df_dist[mimo].loc[:, ~df_dist[mimo].columns.str.contains('LEU3|GLN20|SER23')]
+        elif mimo == "mc6sa":
+            df_dist[mimo] = df_dist[mimo].loc[:, ~df_dist[mimo].columns.str.contains('LEU3|AIB20|AIB23')]
+
 
     class_assignment = {"mc6": 0, "mc6s": 1, "mc6sa": 2}
     features = ["dist", "charge"]
@@ -278,6 +285,7 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.6, te
         "dist": {mimo: np.array(df_dist[mimo]) for mimo in mimos},
         "charge": {mimo: np.array(df_charge[mimo]) for mimo in mimos},
     }
+
     y = {"dist": {}, "charge": {}}
 
     # Assign class labels for each mimo based on the class_assignment dictionary
@@ -292,6 +300,35 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.6, te
 
     data_split = {}
     if data_split_type == 1:
+        X_train = {
+                  "dist": {mimo: np.empty((0, df_dist[mimo].shape[1])) for mimo in mimos},
+                  "charge": {mimo: np.empty((0, df_charge[mimo].shape[1])) for mimo in mimos},
+        }
+
+        X_val = {
+                "dist": {mimo: np.empty((0, df_dist[mimo].shape[1])) for mimo in mimos},
+                "charge": {mimo: np.empty((0, df_charge[mimo].shape[1])) for mimo in mimos},
+        }
+
+        X_test = {
+                 "dist": {mimo: np.empty((0, df_dist[mimo].shape[1])) for mimo in mimos},
+                 "charge": {mimo: np.empty((0, df_charge[mimo].shape[1])) for mimo in mimos},
+        }
+
+        y_train = {
+                  "dist": {mimo: np.empty((0, len(mimos))) for mimo in mimos},
+                  "charge": {mimo: np.empty((0, len(mimos))) for mimo in mimos},
+        }
+
+        y_val = {
+                "dist": {mimo: np.empty((0, len(mimos))) for mimo in mimos},
+                "charge": {mimo: np.empty((0, len(mimos))) for mimo in mimos},
+        }
+
+        y_test = {
+                 "dist": {mimo: np.empty((0, len(mimos))) for mimo in mimos},
+                 "charge": {mimo: np.empty((0, len(mimos))) for mimo in mimos},
+        }
         # Split data into training, validation and testing sets based on the val_frac and test_frac parameters and normalize data.
         for feature in features:
             # Split data
@@ -299,15 +336,23 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.6, te
             test_cutoff = int(test_frac * (X[feature]["mc6"].shape[0] / 8))
             count = 0
             while count < int(X[feature]["mc6"].shape[0]):
-                data_split[feature] = {
-                    "X_train": np.vstack([X[feature][mimo][count:count+val_cutoff, :] for mimo in mimos]),
-                    "X_val": np.vstack([X[feature][mimo][count+val_cutoff:count+test_cutoff, :] for mimo in mimos]),
-                    "X_test": np.vstack([X[feature][mimo][count+test_cutoff:count+int(X[feature][mimo].shape[0]/8), :] for mimo in mimos]),
-                    "y_train": np.vstack([y[feature][mimo][count:count+val_cutoff, :] for mimo in mimos]),
-                    "y_val": np.vstack([y[feature][mimo][count+val_cutoff:count+test_cutoff, :] for mimo in mimos]),
-                    "y_test": np.vstack([y[feature][mimo][count+test_cutoff:count+int(y[feature][mimo].shape[0]/8), :] for mimo in mimos]),
-                }
+                for mimo in mimos:
+                    X_train[feature][mimo] = np.vstack((X_train[feature][mimo], X[feature][mimo][count:count+val_cutoff, :]))
+                    X_val[feature][mimo] = np.vstack((X_val[feature][mimo], X[feature][mimo][count+val_cutoff:count+test_cutoff, :]))
+                    X_test[feature][mimo] = np.vstack((X_test[feature][mimo], X[feature][mimo][count+test_cutoff:count+int(X[feature][mimo].shape[0]/8), :]))
+                    y_train[feature][mimo] = np.vstack((y_train[feature][mimo], y[feature][mimo][count:count+val_cutoff, :]))
+                    y_val[feature][mimo] = np.vstack((y_val[feature][mimo], y[feature][mimo][count+val_cutoff:count+test_cutoff, :]))
+                    y_test[feature][mimo] = np.vstack((y_test[feature][mimo], y[feature][mimo][count+test_cutoff:count+int(y[feature][mimo].shape[0]/8), :]))
                 count += int(X[feature]["mc6"].shape[0] / 8)
+
+            data_split[feature] = {
+                "X_train": np.vstack([X_train[feature][mimo] for mimo in mimos]),
+                "X_val": np.vstack([X_val[feature][mimo] for mimo in mimos]),
+                "X_test": np.vstack([X_test[feature][mimo] for mimo in mimos]),
+                "y_train": np.vstack([y_train[feature][mimo] for mimo in mimos]),
+                "y_val": np.vstack([y_val[feature][mimo] for mimo in mimos]),
+                "y_test": np.vstack([y_test[feature][mimo] for mimo in mimos]),
+            }
 
             # Normalize data
             x_scaler = StandardScaler()
@@ -315,6 +360,7 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.6, te
             data_split[feature]['X_train'] = x_scaler.transform(data_split[feature]['X_train'])
             data_split[feature]['X_val'] = x_scaler.transform(data_split[feature]['X_val'])
             data_split[feature]['X_test'] = x_scaler.transform(data_split[feature]['X_test'])
+
 
     elif data_split_type == 2:
         for feature in features:
@@ -423,6 +469,7 @@ def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
         ax[i].plot(val_loss_per_epoch[feature], color='blue', label='validation loss')
         ax[i].set_xlabel('epoch', weight='bold')
         ax[i].set_ylabel('loss', weight='bold')
+        ax[i].set_title(f"{feature}")
         ax[i].legend(loc='upper right')
 
     # Apply tight layout and show the plot
@@ -514,6 +561,31 @@ def plot_confusion_matrices(cms, mimos):
     plt.savefig("mlp_cm.png", bbox_inches="tight", format="png", dpi=300)
     plt.close()
 
+def shap_analysis(mlp_cls, test_dataloader):
+    features = ['dist', 'charge']
+
+    shap_values = {}
+    test = {}
+    for i, feature in enumerate(features):
+        # print(feature)
+        batch = next(iter(test_dataloader[feature]))
+        data, _ = batch
+        background = data[:250]
+        test[feature] = data[250:]
+        explainer = shap.DeepExplainer(mlp_cls[feature], background)
+        shap_values[feature] = explainer.shap_values(test[feature])
+        print(shap_values[feature])
+
+    fig, axs = plt.subplots(1, 2, figsize=(11, 5))
+    for i, ax in enumerate(axs):
+        shap.summary_plot(shap_values[features[i]], test[features[i]], show=False)
+        # shap.waterfall_plot(shap_values[features[i]], show=False)
+        axs[i].set_title(f"{features[i]}", fontweight="bold")
+
+    fig.tight_layout()
+    plt.savefig("mlp_shap.png", bbox_inches="tight", format="png", dpi=300)
+    plt.close()
+
 
 def format_plots() -> None:
     """
@@ -578,4 +650,5 @@ if __name__ == "__main__":
     test_loss, y_true, y_pred_proba, y_pred, cms = evaluate_model(mlp_cls, test_loader, 'cpu', mimos)
     plot_roc_curve(y_true, y_pred_proba, mimos)
     plot_confusion_matrices(cms, mimos)
+    shap_analysis(mlp_cls, test_loader)
 
