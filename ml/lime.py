@@ -12,7 +12,9 @@ def evaluate_model(model, inputs):
         # For PyTorch model
         model.eval()
         with torch.no_grad():
-            return torch.nn.functional.log_softmax(model(torch.Tensor(inputs))).numpy()
+            inputs = torch.Tensor(inputs)
+            logits = model(inputs)
+            return torch.nn.functional.log_softmax(logits, dim=-1).numpy()
     elif isinstance(model, RandomForestClassifier):
         # For scikit-learn random forest model
         return np.log(model.predict(inputs))
@@ -45,7 +47,7 @@ def perturb_data(x, default_val, n):
     return x_pert, x_bin
 
 
-def lime(perturb_data, data, model, lin_model):
+def lime(perturb_data, data, model, lin_model, n_important = 1):
     """_summary_
     
     Args: 
@@ -55,14 +57,19 @@ def lime(perturb_data, data, model, lin_model):
         lin_model (sklearn.linear_model)
     """
     ws = []
-    important_feature = []
-    for i in range(data.shape[0]):
+    important_features = []
+    important_features_per_label = []
+    n_frames = data.shape[0]
+    for i in range(n_frames):
+        print(f"Progress: {i+1}/{n_frames} frames analyzed")
         x = data[i,:]
         label = evaluate_model(model, x).argmax()
         x_pert, x_bin = perturb_data(x)
         y_pert = evaluate_model(model, x_pert)
         reg = lin_model.fit(x_bin, y_pert)
-        ws.append(reg.coef_[label,:])
-        important_feature.append(ws[-1].argmin())
-    return important_feature, ws
+        ws.append(reg.coef_)
+        features = [np.argpartition(ws[-1][k,:], n_important-1)[0:n_important] for k in range(y_pert.shape[1])]
+        important_features.append(features[label])
+        important_features_per_label.append(features)
+    return important_features, important_features_per_label, ws
 
