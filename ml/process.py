@@ -7,6 +7,8 @@ import time
 import pandas as pd
 import numpy as np
 import MDAnalysis as mda
+from typing import List
+from biopandas.pdb import PandasPdb
 from MDAnalysis.analysis import distances
 from itertools import combinations
 
@@ -137,7 +139,7 @@ def xyz2pdb_traj() -> None:
     )
 
 
-def pairwise_distances_csv(pdb_traj_path, output_file):
+def pairwise_distances_csv(pdb_traj_path, output_file, replicate_info):
     """
     Calculate pairwise distances between residue centers of mass and save the result to a CSV file.
     
@@ -175,6 +177,18 @@ def pairwise_distances_csv(pdb_traj_path, output_file):
 
     # Create a DataFrame with pairwise distances and column names
     pairwise_distances_df = pd.DataFrame(pairwise_distances, columns=column_names)
+
+    # Processes replicate info and add it as the last column
+    replicate_list = []
+    for replicate, count in replicate_info:
+        replicate_list.extend([replicate] * count)
+    replicate_col = pd.DataFrame(replicate_list, columns=['replicate'])
+
+    # Ensure the replicate_col has the same number of rows as the other dataframe.
+    assert len(pairwise_distances_df) == len(replicate_col), "Dataframes have different number of rows."
+
+    # Concatenate the dataframes along the columns axis
+    pairwise_distances_df = pd.concat([pairwise_distances_df, replicate_col], axis=1)
     pairwise_distances_df.to_csv(output_file, index=False)
 
     total_time = round(time.time() - start_time, 3)  # Seconds to run the function
@@ -187,6 +201,173 @@ def pairwise_distances_csv(pdb_traj_path, output_file):
         \t--------------------------------------------------------------------\n
         """
     )
+
+
+def pairwise_charge_features(structure):
+    """
+    Generate pairwise charge features for a given metalloenzyme structure.
+
+    This function reads charge data from a CSV file, computes pairwise charge features
+    using the specified operation (addition or multiplication), and saves the results
+    as a new CSV file. The input CSV file should contain columns with charges for each
+    amino acid in the metalloenzyme, with each row representing a frame from an
+    ab-initio molecular dynamics simulation. The last column should be named "replicate"
+    and contain information about the replicate each row belongs to.
+
+    Parameters
+    ----------
+    structure : str
+        The name of the metalloenzyme structure, used to find the input CSV file
+        (named "{structure}_charges.csv") and to name the output CSV file
+        (named "{structure}_charges_pairwise_{operation}.csv").
+
+    Raises
+    ------
+    ValueError
+        If the user inputs an invalid operation for pairwise charge features.
+        Valid operations are "add" and "multiply".
+
+    """
+    # Load the data
+    input_file = f"{structure}_charges.csv"
+    df = pd.read_csv(input_file)
+
+    # Remove the "replicate" column and store it separately
+    replicate = df.pop("replicate")
+
+    # Prompt the user for the desired operation
+    operation = input("Choose an operation for pairwise charge features (add/multiply): ")
+
+    # Generate pairwise charge features
+    feature_columns = df.columns
+    new_features = []
+    for i, col1 in enumerate(feature_columns):
+        for j, col2 in enumerate(feature_columns):
+            if j <= i:  # Skip duplicate pairs
+                continue
+
+            # Perform the specified operation
+            if operation == "add":
+                new_features.append(pd.DataFrame({f"{col1}-{col2}": df[col1] + df[col2]}))
+            elif operation == "multiply":
+                new_features.append(pd.DataFrame({f"{col1}-{col2}": df[col1] * df[col2]}))
+            else:
+                raise ValueError("Invalid operation. Choose 'add' or 'multiply'.")
+
+    # Concatenate the original DataFrame and new DataFrame
+    df = pd.concat([df] + new_features, axis=1)
+
+    # Add the "replicate" column back in as the final column
+    df = pd.concat([df, replicate], axis=1)
+
+    # Save the results as a new CSV
+    output_file = f"{structure}_charges_pairwise_{operation}.csv"
+    df.to_csv(output_file, index=False)
+
+def get_residue_identifiers(template, by_atom=True) -> List[str]:
+    """
+    Gets the residue identifiers such as Ala1 or Cys24.
+
+    Returns either the residue identifiers for every atom, if by_atom = True
+    or for just the unique amino acids if by_atom = False.
+
+    Parameters
+    ----------
+    template: str
+        The name of the template pdb for the protein of interest.
+    by_atom: bool
+        A boolean value for whether to return the atom identifiers for all atoms
+
+    Returns
+    -------
+    residues_indentifier: List(str)
+        A list of the residue identifiers
+
+    """
+    # Get the residue number identifiers (e.g., 1)
+    residue_number = (
+        PandasPdb().read_pdb(template).df["ATOM"]["residue_number"].tolist()
+    )
+    # Get the residue number identifiers (e.g., ALA)
+    residue_name = PandasPdb().read_pdb(template).df["ATOM"]["residue_name"].tolist()
+    # Combine them together
+    residues_indentifier = [
+        f"{name}{number}" for number, name in zip(residue_number, residue_name)
+    ]
+
+    # Return only unique entries if the user sets by_atom = False
+    if not by_atom:
+        residues_indentifier = list(OrderedDict.fromkeys(residues_indentifier))
+
+    return residues_indentifier
+
+
+def summed_residue_charge(charge_data: pd.DataFrame, template: str):
+    """
+    Sums the charges for all atoms by residue.
+
+    Reduces inaccuracies introduced by the limitations of Mulliken charges.
+
+    Parameters
+    ----------
+    charge_data: pd.DataFrame
+        A DataFrame containing the charge data.
+    template: str
+        The name of the template pdb for the protein of interest.
+
+    Returns
+    -------
+    sum_by_residues: pd.DataFrame
+        The charge data averaged by residue and stored as a pd.DataFrame.
+
+    """
+    # Extract the "replicate" column and remove it from the charge_data DataFrame
+    replicate_column = charge_data['replicate']
+    charge_data = charge_data.drop('replicate', axis=1)
+
+    # Get the residue identifiers (e.g., 1Ala) for each atom
+    residues_indentifier = get_residue_identifiers(template)
+
+    # Assign the residue identifiers as the column names of the charge DataFrame
+    charge_data.columns = residues_indentifier
+    sum_by_residues = charge_data.groupby(by=charge_data.columns, sort=False, axis=1).sum()
+
+    # Add the "replicate" column back to the sum_by_residues DataFrame
+    sum_by_residues['replicate'] = replicate_column
+
+    return sum_by_residues
+
+def final_charge_dataset(charge_file: str, template: str, mutations: List[int]) -> pd.DataFrame:
+    """
+    Create final charge data set.
+
+    The output from the combined charges is an .xls file with atoms as columns.
+    We will combine the atoms by residues and average the charges.
+
+    Returns
+    -------
+    charges_df: pd.DataFrame
+        The original charge data as a pandas dataframe.
+
+    """
+    print(f"   > Converting atoms to residues for {charge_file}.")
+    # Load the charge file as a DataFrame
+    charge_data = pd.read_csv(charge_file, sep='\t')
+    
+    # Average atoms by residue to minimize the inaccuracies of Mulliken charges
+    avg_by_residues = summed_residue_charge(charge_data, template)
+
+    # Drop the residue columns that were mutated
+    # We can't compare these residues' charges as their atom counts differ
+    charges_df = avg_by_residues.drop(avg_by_residues.columns[[m for m in mutations]], axis=1)
+
+     # Save the individual dataframe to a CSV file
+    geometry_name = os.getcwd().split("/")[-1]
+    output_file = f"{geometry_name}_charges.csv"
+    charges_df.to_csv(output_file, index=False)
+    print(f"   > Saved {output_file}.")
+
+    return charges_df
 
 
 if __name__ == "__main__":

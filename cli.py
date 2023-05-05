@@ -15,10 +15,14 @@ import click
 @click.option("--pairwise_distances", "-d", is_flag=True, help="Compute pairwise distances.")
 @click.option("--random_forest", "-rf", is_flag=True, help="Run RF workflow.")
 @click.option("--mlp", "-mlp", is_flag=True, help="Run MLP workflow.")
+@click.option("--pairwise_charge_features", "-pq", is_flag=True, help="Create pairwise charge features.")
+@click.option("--final_charge_dataset", "-fq", is_flag=True, help="Calculate final charge datasest.")
 def cli(
     pairwise_distances,
     random_forest,
     mlp,
+    pairwise_charge_features,
+    final_charge_dataset,
     ):
     """
     The overall command-line interface (CLI) entry point.
@@ -45,8 +49,10 @@ def cli(
 
         click.echo("   > Compute pairwise distances features for a trajectory:")
         geometry_name = os.getcwd().split("/")[-1]
+        infile = f"{geometry_name}_geometry.pdb"
+        outfile = f"{geometry_name}_pairwise_distance.csv"
         ml.manage.check_file_exists(f"{geometry_name}_geometry.pdb")
-        ml.process.pairwise_distances_csv(f"{geometry_name}_geometry.pdb",f"{geometry_name}_pairwise_distance.csv")
+        ml.process.pairwise_distances_csv(infile, outfile, replicate_info)
 
     elif random_forest:
         click.echo("> Run Random Forest model on the cleaned data:")
@@ -105,6 +111,23 @@ def cli(
         ml.mlp.plot_roc_curve(y_true, y_pred_proba, mimos)
         ml.mlp.plot_confusion_matrices(cms, mimos)
         # ml.mlp.shap_analysis(mlp_cls, test_loader)
+
+    elif pairwise_charge_features:
+        click.echo("> Generate pairwise charge data:")
+        click.echo("> Loading...")
+        import ml.process
+        
+        structure = input("What is your structure? ")
+        ml.process.pairwise_charge_features(structure)
+
+    elif final_charge_dataset:
+        click.echo("> Create final charge data set:")
+        click.echo("> Loading...")
+        import ml.process
+
+        # Which amino acids to remove
+        mutations = [2,19,22]
+        charges_df = ml.process.final_charge_dataset("all_charges.xls", "template.pdb", mutations)
 
     else:
         click.echo("No functionality was requested.\nTry --help.")
