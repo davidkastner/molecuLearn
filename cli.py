@@ -8,6 +8,7 @@ print("Default programmed actions for the molecuLearn package.")
 print("GitHub: https://github.com/davidkastner/moleculearn")
 print("Documenation: https://moleculearn.readthedocs.io\n")
 
+import os
 import click
 
 @click.command()
@@ -31,18 +32,23 @@ def cli(
     """
     
     if pairwise_distances:
-        click.echo("> Compute pairwise distances features for a trajectory:")
+        click.echo("> Compute pairwise distances workflow:")
         click.echo("> Loading...")
         import ml.process
         import ml.manage
         
-        # Compute the pairwise distances
-        pdb_traj_path = input("   > What is the name of your PDB? ")
-        print(f"   > Assuming the PDB trajectory has name {pdb_traj_path}")
-        ml.manage.check_file_exists(pdb_traj_path)
-        ml.process.pairwise_distances_csv(pdb_traj_path)
+        click.echo("   > Combine the xyz files from all the single points:")
+        replicate_info = ml.process.combine_sp_xyz()
 
-    if random_forest:
+        click.echo("   > Convert an xyz to a pdb trajectory:")
+        ml.process.xyz2pdb_traj()
+
+        click.echo("   > Compute pairwise distances features for a trajectory:")
+        geometry_name = os.getcwd().split("/")[-1]
+        ml.manage.check_file_exists(f"{geometry_name}_geometry.pdb")
+        ml.process.pairwise_distances_csv(f"{geometry_name}_geometry.pdb",f"{geometry_name}_pairwise_distance.csv")
+
+    elif random_forest:
         click.echo("> Run Random Forest model on the cleaned data:")
         click.echo("> Loading...")
         import ml.rf
@@ -64,7 +70,7 @@ def cli(
         cms = ml.rf.evaluate(rf_cls, data_split, mimos)
         ml.rf.plot_confusion_matrices(cms, mimos)
 
-    if mlp:
+    elif mlp:
         click.echo("> Run MLP model on the cleaned data:")
         click.echo("> Loading...")
         import ml.mlp
