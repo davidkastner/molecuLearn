@@ -232,11 +232,12 @@ def load_data(mimos, data_loc):
     # Iterate through each mimo in the list
     for mimo in mimos:
         # Load charge and distance data from CSV files and store them in dictionaries
-        df_charge[mimo] = pd.read_csv(f"{data_loc}/charges_add/{mimo}_charges_pairwise_add.csv")
+        df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charges.csv")
+        df_charge[mimo] = df_charge[mimo].drop(columns=['replicate'])
         df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distances.csv")
+        df_dist[mimo] = df_dist[mimo].drop(columns=['replicate'])
 
     return df_charge, df_dist
-
 
 def preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.6, test_frac=0.8):
     """
@@ -447,7 +448,8 @@ def plot_data(df_charge, df_dist, mimos):
     # Apply tight layout and show the plot
     fig.tight_layout()
     plt.savefig("mlp_data.png", bbox_inches="tight", format="png", dpi=300)
-    plt.close()
+    plt.show()
+    #plt.close()
 
 def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
     """
@@ -476,7 +478,8 @@ def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
     # Apply tight layout and show the plot
     fig.tight_layout()
     plt.savefig("mlp_loss_v_epoch.png", bbox_inches="tight", format="png", dpi=300)
-    plt.close()
+    plt.show()
+    #plt.close()
 
 
 def plot_roc_curve(y_true, y_pred_proba, mimos):
@@ -526,7 +529,8 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
         plt.title('Multi-class classification ROC for %s features' % feature, weight='bold')
         plt.legend(loc='best')
         plt.savefig("mlp_roc_" + feature + ".png", bbox_inches="tight", format="png", dpi=300)
-        plt.close()
+        plt.show()
+        #plt.close()
 
 def plot_confusion_matrices(cms, mimos):
     """
@@ -560,7 +564,8 @@ def plot_confusion_matrices(cms, mimos):
     # Apply tight layout and save the plotted confusion matrices
     fig.tight_layout()
     plt.savefig("mlp_cm.png", bbox_inches="tight", format="png", dpi=300)
-    plt.close()
+    plt.show()
+    #plt.close()
 
 def shap_analysis(mlp_cls, test_dataloader):
     features = ['dist', 'charge']
@@ -585,7 +590,8 @@ def shap_analysis(mlp_cls, test_dataloader):
 
     fig.tight_layout()
     plt.savefig("mlp_shap.png", bbox_inches="tight", format="png", dpi=300)
-    plt.close()
+    plt.show()
+    #plt.close()
 
 
 def format_plots() -> None:
@@ -657,23 +663,74 @@ if __name__ == "__main__":
     lin_model = {}
     lin_model_charge = LinearRegression()
 
+    # using lime
+    feature = 'charge'
+    perturbations = lambda x : lime.perturb_data(x, np.random.randn(), 2) 
+    data = data_split[feature]['X_train']
+    model = mlp_cls[feature]
+    lin_model = LinearRegression()
+    important_feature, ws = lime.lime(perturbations, data, model, lin_model, 10)
+    bin_edges = np.linspace(-1/2, data.shape[1]-1/2, data.shape[1]+1)
+    
+    plt.hist(np.hstack(important_feature), bins = bin_edges, label = "10 most important features")
+    plt.hist(np.hstack([h[0] for h in important_feature]), bins = bin_edges, label = "most important feature")
+    plt.title("training")
+    plt.legend()
+    plt.show()
+    
 
+    data = data_split[feature]['X_test']
+    model = mlp_cls[feature]
+    lin_model = LinearRegression()
+    important_feature, ws = lime.lime(perturbations, data, model, lin_model, 10)
+        
+    plt.hist(np.hstack(important_feature), bins = bin_edges, label = "10 most important features")
+    plt.hist(np.hstack([h[0] for h in important_feature]), bins = bin_edges, label = "most important feature")
+    plt.title("test")
+    plt.legend()
+    plt.show()
+    
+    
+    
+    # using lime
+    feature = 'dist'
+    perturbations = lambda x : lime.perturb_data(x, 10, 1) 
+    data = data_split[feature]['X_test']
+    model = mlp_cls[feature]
+    lin_model = LinearRegression()
+    important_feature, imp_feat_label, ws = lime.lime(perturbations, data, model, lin_model, 10)
+    bin_edges = np.linspace(-1/2, data.shape[1]-1/2, data.shape[1]+1)
+    counts, bins, fig = plt.hist(np.hstack([h[0] for h in important_feature]), bins = bin_edges, label = "most important feature")
+    ranking = np.argsort(-counts)
+    ranking_labels = {mimo : df_dist[mimo].columns[ranking] for mimo in mimos}
+    
+    plt.title("test")
+    plt.legend()
+    plt.show()
+    
+    
+    x = data[0,:]
+    y_true = lime.evaluate_model(model, x)
+    label = y_true.argmax()
+    x_pert, x_bin = perturbations(x)
+    y_pert = lime.evaluate_model(model, x_pert)
+    """
     fig, axs = plt.subplots(2, 3, figsize=(11,5))
     for i, mimo in enumerate(mimos):
         important_feature_charge, ws_charge = lime.lime(lambda x: lime.perturb_data(x, 0.00, 1), df_charge[mimo].to_numpy(), mlp_cls['charge'], lin_model_charge)
     
         axs[0, i].hist(important_feature_charge, bins=n_charge, range=(0, n_charge-1))
         # plt.show()
-        plt.savefig(f"{mimo}_charge.png")
+        # plt.savefig(f"{mimo}_charge.png")
 
         lin_model_dist = LinearRegression()
         important_feature_dist, ws_dist = lime.lime(lambda x: lime.perturb_data(x, 0.00, 1), df_dist[mimo].to_numpy(), mlp_cls['dist'], lin_model_dist)
     
         axs[1, i].hist(important_feature_dist, bins=n_dist, range=(0, n_dist-1))
         # plt.show()
-        plt.savefig(f"{mimo}_dist.png")
-
-
+        # plt.savefig(f"{mimo}_dist.png")
+    """
+    
 
 
 
