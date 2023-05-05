@@ -12,10 +12,10 @@ def evaluate_model(model, inputs):
         # For PyTorch model
         model.eval()
         with torch.no_grad():
-            return np.log(model(inputs).numpy())
+            return torch.nn.functional.log_softmax(model(torch.Tensor(inputs))).numpy()
     elif isinstance(model, RandomForestClassifier):
         # For scikit-learn random forest model
-        return model.predict(inputs)
+        return np.log(model.predict(inputs))
 
     else:
         raise ValueError("Invalid model type. Supported types: PyTorch nn.Module, scikit-learn RandomForestClassifier")
@@ -55,12 +55,14 @@ def lime(perturb_data, data, model, lin_model):
         lin_model (sklearn.linear_model)
     """
     ws = []
+    important_feature = []
     for i in range(data.shape[0]):
         x = data[i,:]
+        label = evaluate_model(model, x).argmax()
         x_pert, x_bin = perturb_data(x)
         y_pert = evaluate_model(model, x_pert)
         reg = lin_model.fit(x_bin, y_pert)
-        ws.append(reg.coef_)
-        
-    return ws
+        ws.append(reg.coef_[label,:])
+        important_feature.append(ws[-1].argmin())
+    return important_feature, ws
 
