@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import confusion_matrix, roc_curve, auc
 from sklearn.preprocessing import StandardScaler, LabelBinarizer
-from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, LogisticRegression
 from sklearn.utils import shuffle
 from statistics import mean
 import matplotlib.pyplot as plt
@@ -234,7 +234,7 @@ def load_data(mimos, data_loc):
         # Load charge and distance data from CSV files and store them in dictionaries
         df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charges.csv")
         df_charge[mimo] = df_charge[mimo].drop(columns=['replicate'])
-        df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distances.csv")
+        df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distance_v2.csv")
         df_dist[mimo] = df_dist[mimo].drop(columns=['replicate'])
 
     return df_charge, df_dist
@@ -594,6 +594,7 @@ def shap_analysis(mlp_cls, test_dataloader):
     #plt.close()
 
 
+
 def format_plots() -> None:
     """
     General plotting parameters for the Kulik Lab.
@@ -693,16 +694,19 @@ if __name__ == "__main__":
     
     
     # using lime
-    feature = 'dist'
-    perturbations = lambda x : lime.perturb_data(x, 10, 1) 
+    feature = 'charge'
+    perturbations = lambda x : lime.perturb_data(x, 10, 2) 
     data = data_split[feature]['X_test']
     model = mlp_cls[feature]
-    lin_model = LinearRegression()
-    important_feature, imp_feat_label, ws = lime.lime(perturbations, data, model, lin_model, 10)
+    lin_model = LogisticRegression()
+    important_feature, ws = lime.lime(perturbations, data, model, lin_model, 10)
     bin_edges = np.linspace(-1/2, data.shape[1]-1/2, data.shape[1]+1)
     counts, bins, fig = plt.hist(np.hstack([h[0] for h in important_feature]), bins = bin_edges, label = "most important feature")
     ranking = np.argsort(-counts)
-    ranking_labels = {mimo : df_dist[mimo].columns[ranking] for mimo in mimos}
+    ranking_labels = {mimo : df_charge[mimo].columns[ranking] for mimo in mimos}
+    
+    plt.hist(np.hstack(important_feature), bins = bin_edges, label = "10 most important features")
+    plt.hist(np.hstack([h[0] for h in important_feature]), bins = bin_edges, label = "most important feature")
     
     plt.title("test")
     plt.legend()
@@ -713,23 +717,8 @@ if __name__ == "__main__":
     y_true = lime.evaluate_model(model, x)
     label = y_true.argmax()
     x_pert, x_bin = perturbations(x)
-    y_pert = lime.evaluate_model(model, x_pert)
-    """
-    fig, axs = plt.subplots(2, 3, figsize=(11,5))
-    for i, mimo in enumerate(mimos):
-        important_feature_charge, ws_charge = lime.lime(lambda x: lime.perturb_data(x, 0.00, 1), df_charge[mimo].to_numpy(), mlp_cls['charge'], lin_model_charge)
-    
-        axs[0, i].hist(important_feature_charge, bins=n_charge, range=(0, n_charge-1))
-        # plt.show()
-        # plt.savefig(f"{mimo}_charge.png")
-
-        lin_model_dist = LinearRegression()
-        important_feature_dist, ws_dist = lime.lime(lambda x: lime.perturb_data(x, 0.00, 1), df_dist[mimo].to_numpy(), mlp_cls['dist'], lin_model_dist)
-    
-        axs[1, i].hist(important_feature_dist, bins=n_dist, range=(0, n_dist-1))
-        # plt.show()
-        # plt.savefig(f"{mimo}_dist.png")
-    """
+    y_pert = lime.evaluate_model(model, x_pert, output = "probs").argmax(axis=1)
+    lin_model.fit(x_bin, y_pert)
     
 
 

@@ -6,18 +6,26 @@ from sklearn import linear_model
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from itertools import combinations
+from sklearn.linear_model import LogisticRegression, Ridge, LinearRegression, Lasso
 
-def evaluate_model(model, inputs):
+def evaluate_model(model, inputs, output="logits"):
     if isinstance(model, torch.nn.Module):
         # For PyTorch model
         model.eval()
         with torch.no_grad():
             inputs = torch.Tensor(inputs)
             logits = model(inputs)
-            return torch.nn.functional.log_softmax(logits, dim=-1).numpy()
+            if output == "logits":
+                return torch.nn.functional.log_softmax(logits, dim=-1).numpy()
+            else:
+                return torch.nn.functional.softmax(logits, dim=-1).numpy()
+        
     elif isinstance(model, RandomForestClassifier):
         # For scikit-learn random forest model
-        return np.log(model.predict(inputs))
+        if output == "logits":
+            return np.log(model.predict(inputs))
+        else:
+            return model.predict(inputs)
 
     else:
         raise ValueError("Invalid model type. Supported types: PyTorch nn.Module, scikit-learn RandomForestClassifier")
@@ -65,11 +73,15 @@ def lime(perturb_data, data, model, lin_model, n_important = 1):
         x = data[i,:]
         label = evaluate_model(model, x).argmax()
         x_pert, x_bin = perturb_data(x)
-        y_pert = evaluate_model(model, x_pert)
+        if isinstance(lin_model, LogisticRegression):
+            y_pert = evaluate_model(model, x_pert, output="probs").argmax(axis=1)
+        else:
+            y_pert = evaluate_model(model, x_pert, output="logits")
+        
         reg = lin_model.fit(x_bin, y_pert)
         ws.append(reg.coef_)
-        features = [np.argpartition(ws[-1][k,:], n_important-1)[0:n_important] for k in range(y_pert.shape[1])]
-        important_features.append(features[label])
-        important_features_per_label.append(features)
-    return important_features, important_features_per_label, ws
+        feature_importance = ws[-1][label,:]
+        important_features.append(np.argpartition(feature_importance, n_important-1)[0:n_important])
+        
+    return important_features, ws
 
