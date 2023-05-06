@@ -694,7 +694,7 @@ if __name__ == "__main__":
     data = data_split[feature]['X_test']
     important_features, ws = lime.lime(perturbations, data, model, lin_model, 10)
     counts = plot_lime_hists(important_features, n_charge, "test")
-    
+    print_important_features(df_charge, counts)
     
     # using lime
     feature = 'dist'
@@ -712,12 +712,13 @@ if __name__ == "__main__":
     counts = plot_lime_hists(important_features, n_dist, "test")
     print_important_features(df_dist, counts)
     
+    # this is just for debugging and playing around
     #x = data[0,:]
     #y_true = lime.evaluate_model(model, x)
     #label = y_true.argmax()
     #x_pert, x_bin = perturbations(x)
-    #y_pert = lime.evaluate_model(model, x_pert, output = "probs").argmax(axis=1)
-    #lin_model.fit(x_bin, y_pert)
+    #y_pert = lime.evaluate_model(model, x_pert)
+    #test=lin_model.fit(x_bin, y_pert)
     
 
 
