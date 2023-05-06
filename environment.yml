@@ -10,6 +10,7 @@ dependencies:
   - click
   - jupyterlab
   - matplotlib
+  - mdanalysis
   - numpy
   - pandas
   - pip
