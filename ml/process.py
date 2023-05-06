@@ -77,6 +77,251 @@ def combine_sp_xyz():
 
     return replicate_info 
 
+def combine_qm_replicates() -> None:
+    """
+    Combine the all_charges.xls files for replicates into a master charge file.
+
+    The combined file contains a single header with atom numbers as columns.
+    Each row represents a new charge instance.
+    The first column indicates which replicate the charge came from.
+
+    """
+    start_time = time.time()  # Used to report the executation speed
+    charge_file = "all_charges.xls"
+    ignore = ["Analysis/"]
+
+    # Directory containing all replicates
+    primary_dir = os.getcwd()
+    directories = sorted(glob.glob("*/"))
+    replicates = [i for i in directories if i not in ignore]
+    replicate_count = len(replicates)  # Report to user
+
+    # Remove any old version because we are appending
+    if os.path.exists(charge_file):
+        os.remove(charge_file)
+        print(f"      > Deleting old {charge_file}.")
+
+    # Create a new file to save charges
+    with open(charge_file, "a") as new_charge_file:
+        header_written = False
+        for replicate in replicates:
+            # There will always be an Analysis folder
+            os.chdir(replicate)
+            secondary_dir = os.getcwd()
+            print(f"   > Adding {secondary_dir}")
+
+            # Get the replicate number from the folder name
+            replicate_number = os.path.basename(os.path.normpath(secondary_dir))
+
+            # Add the header for the first replicate
+            with open(charge_file, "r") as current_charge_file:
+                for index, line in enumerate(current_charge_file):
+                    if index == 0:
+                        if not header_written:
+                            new_charge_file.writelines(line.strip() + "\treplicate\n")
+                            header_written = True
+                        continue
+                    elif "nan" in line:
+                        print(f"      > Found nan values in {secondary_dir}.")
+                    else:
+                        new_charge_file.writelines(line.strip() + "\t" + replicate_number + "\n")
+
+            os.chdir(primary_dir)
+
+    total_time = round(time.time() - start_time, 3)  # Seconds to run the function
+    print(
+        f"""
+        \t----------------------------ALL RUNS END----------------------------
+        \tRESULT: Combined charges across {replicate_count} replicates.
+        \tOUTPUT: Generated {charge_file} in the current directory.
+        \tTIME: Total execution time: {total_time} seconds.
+        \t--------------------------------------------------------------------\n
+        """
+    )
+
+def combine_replicates(
+    all_charges: str = "all_charges.xls", all_coors: str = "all_coors.xyz"
+) -> None:
+    """
+    Collects charges or coordinates into a xls and xyz file across replicates.
+
+    Parameters
+    ----------
+    all_charges : str
+        The name of the file containing all charges in xls format.
+    all_coors.xyz : str
+        The name of the file containing the coordinates in xyz format.
+
+    Notes
+    -----
+    Run from the directory that contains the replicates.
+    Run combine_restarts first for if each replicated was run across multiple runs.
+    Generalized to combine any number of replicates.
+
+    See Also
+    --------
+    qa.process.combine_restarts: Combines restarts and should be run first.
+    """
+
+    # General variables
+    start_time = time.time()  # Used to report the executation speed
+    files = [all_charges, all_coors]  # Files to be concatonated
+    charge_files: list[str] = []  # List of the charge file locations
+    coors_files: list[str] = []  # List of the coors file locations
+    root = os.getcwd()
+    dirs = sorted(glob.glob(f"{root}/*/"))  # glob to efficiently grab only dirs
+    replicates = len(dirs)  # Only used to report to user
+
+    # Loop through all directories containing replicates
+    for dir in dirs:
+        if os.path.isfile(f"{dir}{files[0]}") and os.path.isfile(f"{dir}{files[1]}"):
+            charge_files.append(f"{dir}{files[0]}")
+            coors_files.append(f"{dir}{files[1]}")
+
+    new_file_names = [f"raw_{all_charges}", all_coors]
+    file_locations = [charge_files, coors_files]
+    # Loop over the file names and their locations
+    for file_name, file_location in zip(new_file_names, file_locations):
+        # Open a new file where we will write the concatonated output
+        with open(file_name, "wb") as outfile:
+            for loc in file_location:
+                with open(loc, "rb") as infile:
+                    shutil.copyfileobj(infile, outfile)
+
+    # The combined charge file now has multiple header lines
+    first_line = True
+    with open(new_file_names[0], "r") as raw_charge_file:
+        with open(files[0], "w") as clean_charge_file:
+            for line in raw_charge_file:
+                # We want the first line to have the header
+                if first_line == True:
+                    clean_charge_file.write(line)
+                    first_line = False
+                # After the first, no lines should contain atom names
+                else:
+                    if "H" in line:
+                        continue
+                    else:
+                        clean_charge_file.write(line)
+    # Delete the charge file with the extra headers to keep the dir clean
+    os.remove(new_file_names[0])
+
+    total_time = round(time.time() - start_time, 3)  # Seconds to run the function
+    print(
+        f"""
+        \t----------------------------ALL RUNS END----------------------------
+        \tRESULT: Combined {replicates} replicates.
+        \tOUTPUT: Generated {files[0]} and {files[1]} in the current directory.
+        \tTIME: Total execution time: {total_time} seconds.
+        \t--------------------------------------------------------------------\n
+        """
+    )
+
+def combine_qm_charges(first_job: int, last_job: int, step: int) -> None:
+    """
+    Combines the charge_mull.xls files generate by TeraChem single points.
+
+    After running periodic single points on the ab-initio MD data,
+    we need to process the charge data so that it matches the SQM data.
+    This code gets the charges from each single point and combines them.
+    Results are stored in a tabular form.
+
+    Parameters
+    ----------
+    first_job: int
+        The name of the first directory and first job e.g., 0
+    last_job: int
+        The name of the last directory and last job e.g., 39901
+    step: int
+        The step size between each single point.
+
+    """
+    start_time = time.time()  # Used to report the executation speed
+    new_charge_file = "all_charges.xls"
+    current_charge_file = "charge_mull.xls"
+    ignore = ["Analysis/"]
+
+    # Directory containing all replicates
+    primary_dir = os.getcwd()
+    directories = sorted(glob.glob("*/"))
+    replicates = [i for i in directories if i not in ignore]
+    replicate_count = len(replicates)  # Report to user
+
+    for replicate in replicates:
+        frames = 0  # Saved to report to the user
+        os.chdir(replicate)
+        # The location of the current qm job that we are appending
+        secondary_dir = os.getcwd()
+        print(f"   > Adding { secondary_dir}")
+
+        # Create a new file where we will store the combined charges
+        first_charges_file = True  # We need the title line but only once
+
+        if os.path.exists(new_charge_file):
+            os.remove(new_charge_file)  # Since appending remove old version
+            print(f"      > Deleting old {secondary_dir}/{new_charge_file}.")
+        with open(new_charge_file, "a") as combined_charges_file:
+            # A list of all job directories assuming they are named as integers
+            job_dirs = [str(dir) for dir in range(first_job, last_job, step)]
+
+            # Change into one of the QM job directories
+            for index, dir in enumerate(job_dirs):
+                os.chdir(dir)
+                tertiary_dir = os.getcwd()
+                os.chdir("scr")
+                # Open an individual charge file from a QM single point
+                atom_column = []
+                charge_column = []
+
+                # Open one of the QM charge single point files
+                with open(current_charge_file, "r") as charges_file:
+                    # Separate the atom and charge information
+                    for line in charges_file:
+                        clean_line = line.strip().split("\t")
+                        charge_column.append(clean_line[1])
+                        atom_column.append(clean_line[0])
+
+                # Join the data and separate it with tabs
+                charge_line = "\t".join(charge_column)
+
+                # For some reason, TeraChem indexes at 0 with SQM,
+                # and 1 with QM so we change the index to start at 1
+                atoms_line_reindex = []
+                for atom in atom_column:
+                    atom_list = atom.split()
+                    atom_list[0] = str(int(atom_list[0]) - 1)
+                    x = " ".join(atom_list)
+                    atoms_line_reindex.append(x)
+                atom_line = "\t".join(atoms_line_reindex)
+
+                # Append the data to the combined charges data file
+                # We only add the header line once
+                if first_charges_file:
+                    combined_charges_file.write(f"{atom_line}\n")
+                    combined_charges_file.write(f"{charge_line}\n")
+                    frames += 1
+                    first_charges_file = False
+                # Skip the header if it has already been added
+                else:
+                    if "nan" in charge_line:
+                        print(f"      > Found nan values in {index * 100}!!")
+                    combined_charges_file.write(f"{charge_line}\n")
+                    frames += 1
+
+                os.chdir(secondary_dir)
+        print(f"      > Combined {frames} frames.")
+        os.chdir(primary_dir)
+
+    total_time = round(time.time() - start_time, 3)  # Seconds to run the function
+    print(
+        f"""
+        \t----------------------------ALL RUNS END----------------------------
+        \tRESULT: Combined charges across {replicate_count} replicates.
+        \tOUTPUT: Generated {new_charge_file} in the current directory.
+        \tTIME: Total execution time: {total_time} seconds.
+        \t--------------------------------------------------------------------\n
+        """
+    )
 
 def xyz2pdb_traj() -> None:
     """
@@ -264,6 +509,9 @@ def pairwise_charge_features(structure):
     output_file = f"{structure}_charges_pairwise_{operation}.csv"
     df.to_csv(output_file, index=False)
 
+    return df
+
+
 def get_residue_identifiers(template, by_atom=True) -> List[str]:
     """
     Gets the residue identifiers such as Ala1 or Cys24.
@@ -366,6 +614,217 @@ def final_charge_dataset(charge_file: str, template: str, mutations: List[int]) 
     output_file = f"{geometry_name}_charges.csv"
     charges_df.to_csv(output_file, index=False)
     print(f"   > Saved {output_file}.")
+
+    return charges_df
+
+def calculate_esp(component_atoms, scheme):
+    """
+    Calculate the electrostatic potential (ESP) of a molecular component.
+
+    Takes the output from a Multiwfn charge calculation and calculates the ESP.
+    Run it from the folder that contains all replicates.
+    It will generate a single csv file with all the charges for your residue,
+    with one component/column specified in the input residue dictionary.
+
+    Parameters
+    ----------
+    component_atoms: List[int]
+        A list of the atoms in a given component
+
+    """
+    # Physical constants
+    k = 8.987551 * (10**9)  # Coulombic constant in kg*m**3/(s**4*A**2)
+    A_to_m = 10 ** (-10)
+    KJ_J = 10**-3
+    faraday = 23.06  # Kcal/(mol*V)
+    C_e = 1.6023 * (10**-19)
+    one_mol = 6.02 * (10**23)
+    cal_J = 4.184
+    component_esp_list = []
+
+    # Open a charge scheme file as a pandas dataframe
+    file_path = glob.glob(f"*_{scheme}.txt")[0]
+    df_all = pd.read_csv(file_path, sep="\s+", names=["Atom", "x", "y", "z", "charge"])
+
+    # The index of the metal center assuming iron Fe
+    metal_index = df_all.index[df_all["Atom"] == "Fe"][0]
+    component_atoms.append(metal_index)
+
+    # Select rows corresponding to an atoms in the component
+    df = df_all[df_all.index.isin(component_atoms)]
+    df.reset_index(drop=True, inplace=True)
+
+    # Get the new index of the metal as it will have changed
+    metal_index = df.index[df["Atom"] == "Fe"][0]
+
+    # Convert columns lists for indexing
+    atoms = df["Atom"]  # Now contains only atoms in component
+    charges = df["charge"]
+    xs = df["x"]
+    ys = df["y"]
+    zs = df["z"]
+
+    # Determine position and charge of the target atom
+    xo = xs[metal_index]
+    yo = ys[metal_index]
+    zo = zs[metal_index]
+    chargeo = charges[metal_index]
+    total_esp = 0
+
+    for idx in range(0, len(atoms)):
+        if idx == metal_index:
+            continue
+        else:
+            # Calculate esp and convert to units (A to m)
+            r = (
+                ((xs[idx] - xo) * A_to_m) ** 2
+                + ((ys[idx] - yo) * A_to_m) ** 2
+                + ((zs[idx] - zo) * A_to_m) ** 2
+            ) ** 0.5
+            total_esp = total_esp + (charges[idx] / r)
+
+    # Note that cal/kcal * kJ/J gives 1
+    component_esp = k * total_esp * ((C_e)) * cal_J * faraday
+
+    return component_esp
+
+def collect_esp_components(first_job: int, last_job: int, step: int) -> None:
+    """
+    Loops over replicates and single points and collects metal-centered ESPs.
+
+    The main purpose is to navigagt the file structure and collect the data.
+    The computing of the ESP is done in the calculate_esp() function.
+
+    Parameters
+    ----------
+    first_job: int
+        The name of the first directory and first job e.g., 0
+    last_job: int
+        The name of the last directory and last job e.g., 39900
+    step: int
+        The step size between each single point.
+
+    See Also
+    --------
+    qa.process.calculate_esp()
+
+    """
+    start_time = time.time()  # Used to report the executation speed
+    ignore = ["Analysis/", "coordinates/", "inputfiles/"]
+    charge_schemes = ["ADCH", "Hirshfeld", "Mulliken", "Voronoi"]
+    components = {
+        "all": "1-487",
+        "lower": "1-252",
+        "upper": "253-424",
+        "lower-his": "1-86,104-252",
+        "heme": "425-486",
+        "his": "87-103",
+    }
+    qm_job_count = 0
+
+    # Directory containing all replicates
+    primary_dir = os.getcwd()
+    directories = sorted(glob.glob("*/"))
+    replicates = [i for i in directories if i not in ignore]
+    replicate_count = len(replicates)  # Report to user
+
+    # Loop over each charge scheme which will be in the scr/ directory
+    for scheme in charge_schemes:
+        # Create a pandas dataframe with the columns from components keys
+        charge_scheme_df = pd.DataFrame(columns=components.keys())
+
+        # Loop over each replicate
+        row_index = 0
+        for replicate in replicates:
+            os.chdir(replicate)
+
+            # The location of the current qm job that we are appending
+            secondary_dir = os.getcwd()
+
+            # A list of all job directories assuming they are named as integers
+            job_dirs = [str(dir) for dir in range(first_job, last_job, step)]
+
+            # Change into one of the QM job directories
+            for dir in job_dirs:
+                os.chdir(dir)
+                tertiary_dir = os.getcwd()
+                os.chdir("scr/")
+                row_index += 1
+
+                # Loop of the values of our dictionary
+                for key, value in components.items():
+                    component_atoms = []
+                    # Convert number strings, with commas and dashes, to numbers
+                    for range_str in value.split(","):
+                        start, end = map(int, range_str.split("-"))
+                        component_atoms.extend(range(start - 1, end))
+
+                        # Run a function
+                        try:
+                            component_esp = calculate_esp(
+                                component_atoms, scheme
+                            )
+                        except:
+                            print(f"Job: {replicate}-->{dir}")
+                        charge_scheme_df.loc[row_index, key] = component_esp
+
+                # Move back to the QM job directory
+                qm_job_count += 1
+                os.chdir(secondary_dir)
+
+            os.chdir(primary_dir)
+
+        # Save the dataframe to a csv file
+        charge_scheme_df.to_csv(f"{scheme}_esp.csv", index=False)
+
+    total_time = round(time.time() - start_time, 3)  # Time to run the function
+    print(
+        f"""
+        \t----------------------------ALL RUNS END----------------------------
+        \tRESULT: Performed operation on {replicate_count} replicates.
+        \tOUTPUT: Output files for {qm_job_count} single points.
+        \tTIME: Total execution time: {total_time} seconds.
+        \t--------------------------------------------------------------------\n
+        """
+    )
+
+
+def add_esp_charges(charges_df, esp_scheme, geometry_name):
+    """
+    Add the "upper" and "lower" columns from a CSV file to a DataFrame by removing
+    and re-adding the "replicates" column.
+
+    Parameters
+    ----------
+    charges_df : pandas.DataFrame
+        The DataFrame to which the "upper" and "lower" columns will be added.
+    esp_scheme : str
+        The name of the esp file.
+    geometry_name : str
+        The name of the mimochrome or directory where we are working.
+
+    Returns
+    -------
+    pandas.DataFrame
+        The modified DataFrame with the "upper" and "lower" columns added
+        and the "replicates" column re-added at the end.
+
+    """
+    # Read the csv file as a DataFrame
+    csv_df = pd.read_csv(f"{esp_scheme}_esp.csv")
+
+    # Select the "upper" and "lower" columns
+    selected_columns = csv_df[["upper", "lower"]]
+
+    # Remove the "replicates" column from charges_df and store it separately
+    replicates_column = charges_df.pop("replicate")
+
+    # Concatenate charges_df and selected_columns
+    charges_df = pd.concat([charges_df, selected_columns], axis=1)
+
+    # Add the "replicates" column back to charges_df
+    charges_df["replicate"] = replicates_column
+    charges_df.to_csv(f"{geometry_name}_charges_esp.csv", index=False)
 
     return charges_df
 
