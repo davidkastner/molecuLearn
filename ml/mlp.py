@@ -450,7 +450,6 @@ def plot_data(df_charge, df_dist, mimos):
     fig.tight_layout()
     plt.savefig("mlp_data.png", bbox_inches="tight", format="png", dpi=300)
     plt.show()
-    #plt.close()
 
 def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
     """
@@ -480,7 +479,7 @@ def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
     fig.tight_layout()
     plt.savefig("mlp_loss_v_epoch.png", bbox_inches="tight", format="png", dpi=300)
     plt.show()
-    #plt.close()
+    
 
 
 def plot_roc_curve(y_true, y_pred_proba, mimos):
@@ -531,7 +530,7 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
         plt.legend(loc='best')
         plt.savefig("mlp_roc_" + feature + ".png", bbox_inches="tight", format="png", dpi=300)
         plt.show()
-        #plt.close()
+        
 
 def plot_confusion_matrices(cms, mimos):
     """
@@ -566,7 +565,7 @@ def plot_confusion_matrices(cms, mimos):
     fig.tight_layout()
     plt.savefig("mlp_cm.png", bbox_inches="tight", format="png", dpi=300)
     plt.show()
-    #plt.close()
+    
 
 def shap_analysis(mlp_cls, test_dataloader, df_dist, df_charge, mimos):
     features = ['dist', 'charge']
@@ -595,17 +594,21 @@ def shap_analysis(mlp_cls, test_dataloader, df_dist, df_charge, mimos):
     fig.tight_layout()
     plt.savefig("mlp_shap.png", bbox_inches="tight", format="png", dpi=300)
     plt.show()
-    #plt.close()
 
-def plot_lime_hists(important_features, n_features, title =""):
+
+def plot_lime_hists(important_features, n_features, bin_labels = None, savepath=None, title =""):
     bin_edges = np.linspace(-1/2, n_features-1/2, n_features+1)
-    n_important = len(important_features[0])
-    _, _, fig = plt.hist(np.hstack([h for h in important_features]), bins = bin_edges, label = f"{n_important} most important features")
-    counts, bins, fig = plt.hist(np.hstack([h[0] for h in important_features]), bins = bin_edges, label = "most important feature")
-    plt.legend()
-    plt.title(title)
-    plt.show()
+    fig, ax = plt.subplots()
+    counts = ax.hist(important_features, bins = bin_edges, label = "most important feature")
+    if bin_labels != None:
+        ax.set_xticks(range(n_features))
+        ax.set_xticklabels(bin_labels, rotation = 90)
+    ax.set_title(title)
+    ax.set_ylabel("number of frames")
+    if savepath != None:
+        fig.savefig(savepath)
     return counts
+
 
 def print_important_features(df, counts, n = 5):
     important_idcs = np.argpartition(-counts, n-1)[0:n]
@@ -679,25 +682,26 @@ if __name__ == "__main__":
     plot_confusion_matrices(cms, mimos)
     shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos)
 
-    # lin_model = {}
-    # lin_model_charge = LinearRegression()
 
     # set perturbation by really large value
+    # use ordinary least squares to predict logits
+    # alternative choices include regularized least squares (ridge regression, 
+    # Lasso or elastic net) or (regularized)logistic regression. 
+    lin_model = LinearRegression()
     
     # using lime
     feature = 'charge'
     perturbations = lambda x : lime.perturb_data(x, 1000, 2) 
     data = data_split[feature]['X_train']
     model = mlp_cls[feature]
-    lin_model = LinearRegression()
     important_features, ws = lime.lime(perturbations, data, model, lin_model, 10)
-    counts = plot_lime_hists(important_features, n_charge, title="train")
+    counts = plot_lime_hists(np.hstack([f[0] for f in important_features]), n_charge, title="train")
     print_important_features(df_charge, counts)
    
 
     data = data_split[feature]['X_test']
     important_features, ws = lime.lime(perturbations, data, model, lin_model, 10)
-    counts = plot_lime_hists(important_features, n_charge, "test")
+    counts = plot_lime_hists(np.hstack([f[0] for f in important_features]), n_charge, list(df_charge['mc6'].columns), None, "test")
     print_important_features(df_charge, counts)
     
     # using lime
@@ -705,24 +709,23 @@ if __name__ == "__main__":
     perturbations = lambda x : lime.perturb_data(x, 1000, 1) 
     data = data_split[feature]['X_train']
     model = mlp_cls[feature]
-    lin_model = LinearRegression()
     important_features, ws = lime.lime(perturbations, data, model, lin_model, 10)
-    counts = plot_lime_hists(important_features, n_dist, title="train")
+    counts = plot_lime_hists(np.hstack([f[0] for f in important_features]), n_dist, title="train")
     print_important_features(df_dist, counts)
    
 
     data = data_split[feature]['X_test']
     important_features, ws = lime.lime(perturbations, data, model, lin_model, 10)
-    counts = plot_lime_hists(important_features, n_dist, "test")
+    counts = plot_lime_hists(np.hstack([f[0] for f in important_features]), n_dist, "test")
     print_important_features(df_dist, counts)
     
     # this is just for debugging and playing around
-    #x = data[0,:]
-    #y_true = lime.evaluate_model(model, x)
-    #label = y_true.argmax()
-    #x_pert, x_bin = perturbations(x)
-    #y_pert = lime.evaluate_model(model, x_pert)
-    #test=lin_model.fit(x_bin, y_pert)
+    x = data[0,:]
+    y_true = lime.evaluate_model(model, x)
+    label = y_true.argmax()
+    x_pert, x_bin = perturbations(x)
+    y_pert = lime.evaluate_model(model, x_pert)
+    test=lin_model.fit(x_bin, y_pert)
     
 
 
