@@ -596,8 +596,8 @@ def shap_analysis(mlp_cls, test_dataloader):
 def plot_lime_hists(important_features, n_features, title =""):
     bin_edges = np.linspace(-1/2, n_features-1/2, n_features+1)
     n_important = len(important_features[0])
-    _, _, fig = plt.hist(np.hstack([h for h in important_feature]), bins = bin_edges, label = f"{n_important} most important features")
-    counts, bins, fig = plt.hist(np.hstack([h[0] for h in important_feature]), bins = bin_edges, label = "most important feature")
+    _, _, fig = plt.hist(np.hstack([h for h in important_features]), bins = bin_edges, label = f"{n_important} most important features")
+    counts, bins, fig = plt.hist(np.hstack([h[0] for h in important_features]), bins = bin_edges, label = "most important feature")
     plt.legend()
     plt.title(title)
     plt.show()
@@ -692,7 +692,7 @@ if __name__ == "__main__":
    
 
     data = data_split[feature]['X_test']
-    important_feature, ws = lime.lime(perturbations, data, model, lin_model, 10)
+    important_features, ws = lime.lime(perturbations, data, model, lin_model, 10)
     counts = plot_lime_hists(important_features, n_charge, "test")
     
     
@@ -708,7 +708,7 @@ if __name__ == "__main__":
    
 
     data = data_split[feature]['X_test']
-    important_feature, ws = lime.lime(perturbations, data, model, lin_model, 10)
+    important_features, ws = lime.lime(perturbations, data, model, lin_model, 10)
     counts = plot_lime_hists(important_features, n_dist, "test")
     print_important_features(df_dist, counts)
     
