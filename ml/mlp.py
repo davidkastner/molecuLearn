@@ -593,6 +593,20 @@ def shap_analysis(mlp_cls, test_dataloader):
     plt.show()
     #plt.close()
 
+def plot_lime_hists(important_features, n_features, title =""):
+    bin_edges = np.linspace(-1/2, n_features-1/2, n_features+1)
+    n_important = len(important_features[0])
+    _, _, fig = plt.hist(np.hstack([h for h in important_feature]), bins = bin_edges, label = f"{n_important} most important features")
+    counts, bins, fig = plt.hist(np.hstack([h[0] for h in important_feature]), bins = bin_edges, label = "most important feature")
+    plt.legend()
+    plt.title(title)
+    plt.show()
+    return counts
+
+def print_important_features(df, counts, n = 5):
+    important_idcs = np.argpartition(-counts, n-1)[0:n]
+    print(f"The {n} most important features in descending order are")
+    print(df['mc6'].columns[important_idcs])
 
 
 def format_plots() -> None:
@@ -664,61 +678,46 @@ if __name__ == "__main__":
     lin_model = {}
     lin_model_charge = LinearRegression()
 
+    # set perturbation by really large value
+    
     # using lime
     feature = 'charge'
-    perturbations = lambda x : lime.perturb_data(x, np.random.randn(), 2) 
+    perturbations = lambda x : lime.perturb_data(x, 1000, 2) 
     data = data_split[feature]['X_train']
     model = mlp_cls[feature]
     lin_model = LinearRegression()
-    important_feature, ws = lime.lime(perturbations, data, model, lin_model, 10)
-    bin_edges = np.linspace(-1/2, data.shape[1]-1/2, data.shape[1]+1)
-    
-    plt.hist(np.hstack(important_feature), bins = bin_edges, label = "10 most important features")
-    plt.hist(np.hstack([h[0] for h in important_feature]), bins = bin_edges, label = "most important feature")
-    plt.title("training")
-    plt.legend()
-    plt.show()
-    
+    important_features, ws = lime.lime(perturbations, data, model, lin_model, 10)
+    counts = plot_lime_hists(important_features, n_charge, title="train")
+    print_important_features(df_charge, counts)
+   
 
     data = data_split[feature]['X_test']
-    model = mlp_cls[feature]
-    lin_model = LinearRegression()
     important_feature, ws = lime.lime(perturbations, data, model, lin_model, 10)
-        
-    plt.hist(np.hstack(important_feature), bins = bin_edges, label = "10 most important features")
-    plt.hist(np.hstack([h[0] for h in important_feature]), bins = bin_edges, label = "most important feature")
-    plt.title("test")
-    plt.legend()
-    plt.show()
-    
+    counts = plot_lime_hists(important_features, n_charge, "test")
     
     
     # using lime
-    feature = 'charge'
-    perturbations = lambda x : lime.perturb_data(x, 10, 2) 
-    data = data_split[feature]['X_test']
+    feature = 'dist'
+    perturbations = lambda x : lime.perturb_data(x, 1000, 1) 
+    data = data_split[feature]['X_train']
     model = mlp_cls[feature]
-    lin_model = LogisticRegression()
+    lin_model = LinearRegression()
+    important_features, ws = lime.lime(perturbations, data, model, lin_model, 10)
+    counts = plot_lime_hists(important_features, n_dist, title="train")
+    print_important_features(df_dist, counts)
+   
+
+    data = data_split[feature]['X_test']
     important_feature, ws = lime.lime(perturbations, data, model, lin_model, 10)
-    bin_edges = np.linspace(-1/2, data.shape[1]-1/2, data.shape[1]+1)
-    counts, bins, fig = plt.hist(np.hstack([h[0] for h in important_feature]), bins = bin_edges, label = "most important feature")
-    ranking = np.argsort(-counts)
-    ranking_labels = {mimo : df_charge[mimo].columns[ranking] for mimo in mimos}
+    counts = plot_lime_hists(important_features, n_dist, "test")
+    print_important_features(df_dist, counts)
     
-    plt.hist(np.hstack(important_feature), bins = bin_edges, label = "10 most important features")
-    plt.hist(np.hstack([h[0] for h in important_feature]), bins = bin_edges, label = "most important feature")
-    
-    plt.title("test")
-    plt.legend()
-    plt.show()
-    
-    
-    x = data[0,:]
-    y_true = lime.evaluate_model(model, x)
-    label = y_true.argmax()
-    x_pert, x_bin = perturbations(x)
-    y_pert = lime.evaluate_model(model, x_pert, output = "probs").argmax(axis=1)
-    lin_model.fit(x_bin, y_pert)
+    #x = data[0,:]
+    #y_true = lime.evaluate_model(model, x)
+    #label = y_true.argmax()
+    #x_pert, x_bin = perturbations(x)
+    #y_pert = lime.evaluate_model(model, x_pert, output = "probs").argmax(axis=1)
+    #lin_model.fit(x_bin, y_pert)
     
 
 
