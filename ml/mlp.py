@@ -609,12 +609,42 @@ def plot_lime_hists(important_features, n_features, bin_labels = None, savepath=
         fig.savefig(savepath)
     return counts
 
+def plot_lime_hists_by_label(important_features, labels, n_features, bin_labels = None, savepath=None, title =""):
+    bin_edges = np.linspace(-1/2, n_features-1/2, n_features+1)
+    fig, ax = plt.subplots()
+    ax.hist(important_features, bins = bin_edges, stacked = True, label = labels)
+    if bin_labels != None:
+        ax.set_xticks(range(n_features))
+        ax.set_xticklabels(bin_labels, rotation = 90)
+    ax.set_title(title)
+    ax.set_ylabel("number of frames")
+    ax.legend()
+    if savepath != None:
+        fig.savefig(savepath)
+    pass
 
-def print_important_features(df, counts, n = 5):
+def lime_analysis(data, model, lin_model, perturbations, classes, **kwargs):
+    feature_labels = kwargs['feature_labels']
+    fig_title = kwargs['fig_title']
+    fig_savepath = kwargs['fig_savepath']
+    
+    n_features = data.shape[1]
+    pred_labels = lime.evaluate_model(model,data).argmax(axis=1)
+    important_features, ws = lime.lime(perturbations, data, model, lin_model, 10)
+
+    most_important_feature = np.hstack([f[0] for f in important_features])
+    most_important_feature_by_label = [[feat for (i,feat) in enumerate(most_important_feature) if pred_labels[i] == k] 
+                                       for k in range(len(classes))]
+    plot_lime_hists_by_label(most_important_feature_by_label, classes, n_features, feature_labels, fig_savepath+"_label.png", fig_title)
+    counts = plot_lime_hists(np.hstack([f[0] for f in important_features]), n_features, feature_labels, fig_savepath+".png", fig_title)
+    
+    return important_features, ws, counts
+   
+
+def print_important_features(feature_labels, counts, n = 5):
     important_idcs = np.argpartition(-counts, n-1)[0:n]
     print(f"The {n} most important features in descending order are")
-    print(df['mc6'].columns[important_idcs])
-
+    print([feature_labels[i] for i in important_idcs])
 
 def format_plots() -> None:
     """
@@ -690,44 +720,43 @@ if __name__ == "__main__":
     lin_model = LinearRegression()
     
     # using lime
-    feature = 'charge'
-    perturbations = lambda x : lime.perturb_data(x, 1000, 2) 
-    data = data_split[feature]['X_train']
-    model = mlp_cls[feature]
-    important_features, ws = lime.lime(perturbations, data, model, lin_model, 10)
-    counts = plot_lime_hists(np.hstack([f[0] for f in important_features]), n_charge, title="train")
-    print_important_features(df_charge, counts)
-   
-
-    data = data_split[feature]['X_test']
-    important_features, ws = lime.lime(perturbations, data, model, lin_model, 10)
-    counts = plot_lime_hists(np.hstack([f[0] for f in important_features]), n_charge, list(df_charge['mc6'].columns), None, "test")
-    print_important_features(df_charge, counts)
     
-    # using lime
-    feature = 'dist'
-    perturbations = lambda x : lime.perturb_data(x, 1000, 1) 
-    data = data_split[feature]['X_train']
-    model = mlp_cls[feature]
-    important_features, ws = lime.lime(perturbations, data, model, lin_model, 10)
-    counts = plot_lime_hists(np.hstack([f[0] for f in important_features]), n_dist, title="train")
-    print_important_features(df_dist, counts)
-   
-
+    
+    ## Charge data
+    feature = 'charge'
+    feature_labels = list(df_charge['mc6'].columns)
+    perturbations = lambda x : lime.perturb_data(x, 10000, 1) 
     data = data_split[feature]['X_test']
-    important_features, ws = lime.lime(perturbations, data, model, lin_model, 10)
-    counts = plot_lime_hists(np.hstack([f[0] for f in important_features]), n_dist, "test")
-    print_important_features(df_dist, counts)
+    model = mlp_cls[feature]
+    
+    important_features, ws, counts = lime_analysis(data, model, lin_model, perturbations, mimos, 
+                                                   feature_labels = feature_labels,
+                                                   fig_title="test",
+                                                   fig_savepath="figures/mlp_lime_charge_test")
+    print_important_features(feature_labels, counts)
+    
+    
+
+    feature = 'dist'
+    feature_labels = None
+    perturbations = lambda x : lime.perturb_data(x, 1000, 1) 
+    data = data_split[feature]['X_test']
+    model = mlp_cls[feature]
+    
+    important_features, ws, counts = lime_analysis(data, model, lin_model, perturbations, mimos, 
+                                                   feature_labels = feature_labels,
+                                                   fig_title="test",
+                                                   fig_savepath="figures/mlp_lime_dist_test")
+    print_important_features(feature_labels, counts)
+    
     
     # this is just for debugging and playing around
     x = data[0,:]
     y_true = lime.evaluate_model(model, x)
     label = y_true.argmax()
-    x_pert, x_bin = perturbations(x)
+    x_pert, x_bin = lime.perturb_data(x, 30, 1)
     y_pert = lime.evaluate_model(model, x_pert)
     test=lin_model.fit(x_bin, y_pert)
+    y_pert.argmax(axis=1)
     
-
-
-
 
