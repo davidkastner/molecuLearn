@@ -11,7 +11,8 @@ from statistics import mean
 import torch
 from itertools import cycle
 import shap
-import lime
+# import lime
+import ml.lime
 
 def gradient_step(model, dataloader, optimizer, device):
 
@@ -232,7 +233,7 @@ def load_data(mimos, data_loc):
     # Iterate through each mimo in the list
     for mimo in mimos:
         # Load charge and distance data from CSV files and store them in dictionaries
-        df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charges.csv")
+        df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charges_esp.csv")
         df_charge[mimo] = df_charge[mimo].drop(columns=['replicate'])
         df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distance_v2.csv")
         df_dist[mimo] = df_dist[mimo].drop(columns=['replicate'])
@@ -385,7 +386,7 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.6, te
             data_split[feature]['X_val'] = x_scaler.transform(data_split[feature]['X_val'])
             data_split[feature]['X_test'] = x_scaler.transform(data_split[feature]['X_test'])
 
-    return data_split
+    return data_split, df_dist, df_charge
 
 def build_dataloaders(data_split):
     '''
@@ -522,7 +523,7 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
             plt.plot(fpr[j], tpr[j], color=color, lw=2,
                      label='ROC curve (area = %0.2f) for class %s' % (roc_auc[j], mimos[j]))
         plt.plot([0, 1], [0, 1], 'k--', lw=2)
-        plt.xlim([0.0, 1.0])
+        plt.xlim([-0.05, 1.0])
         plt.ylim([0.0, 1.05])
         plt.xlabel('false positive rate', weight='bold')
         plt.ylabel('true positive rate', weight='bold')
@@ -567,26 +568,29 @@ def plot_confusion_matrices(cms, mimos):
     plt.show()
     #plt.close()
 
-def shap_analysis(mlp_cls, test_dataloader):
+def shap_analysis(mlp_cls, test_dataloader, df_dist, df_charge, mimos):
     features = ['dist', 'charge']
+
+    df = {"dist": df_dist, "charge": df_charge}
 
     shap_values = {}
     test = {}
     for i, feature in enumerate(features):
-        # print(feature)
         batch = next(iter(test_dataloader[feature]))
         data, _ = batch
-        background = data[:250]
-        test[feature] = data[250:]
+        background = data[:100]
+        test[feature] = data[100:]
         explainer = shap.DeepExplainer(mlp_cls[feature], background)
         shap_values[feature] = explainer.shap_values(test[feature])
-        print(shap_values[feature])
 
-    fig, axs = plt.subplots(1, 2, figsize=(11, 5))
-    for i, ax in enumerate(axs):
-        shap.summary_plot(shap_values[features[i]], test[features[i]], show=False)
-        # shap.waterfall_plot(shap_values[features[i]], show=False)
-        axs[i].set_title(f"{features[i]}", fontweight="bold")
+    for i in range(len(mimos)):
+        fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+        for j, ax in enumerate(axs):
+            plt.sca(ax)
+            shap.summary_plot(shap_values[features[j]][i], test[features[j]], feature_names=df[features[j]][mimos[i]].columns.to_list(), show=False)
+            axs[j].set_title(f"{features[j]}, {mimos[i]}", fontweight="bold")
+        plt.savefig(f"mlp_shap_{mimos[i]}.png", bbox_inches="tight", format="png", dpi=300)
+        plt.close()
 
     fig.tight_layout()
     plt.savefig("mlp_shap.png", bbox_inches="tight", format="png", dpi=300)
@@ -645,12 +649,12 @@ if __name__ == "__main__":
     format_plots()
     mimos = ["mc6", "mc6s", "mc6sa"]
     # data_loc = input("   > Where are your data files located? ")
-    data_loc = 'data/'
+    data_loc = '/Users/husainadamji/Software/molecuLearn/ml/data'
     df_charge, df_dist = load_data(mimos, data_loc)
     plot_data(df_charge, df_dist, mimos)
 
     # Preprocess the data and split into train, validation, and test sets
-    data_split = preprocess_data(df_charge, df_dist, mimos, 1)
+    data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, 1)
 
     # Build the train, validation, and test dataloaders
     train_loader, val_loader, test_loader = build_dataloaders(data_split)
@@ -673,10 +677,10 @@ if __name__ == "__main__":
     test_loss, y_true, y_pred_proba, y_pred, cms = evaluate_model(mlp_cls, test_loader, 'cpu', mimos)
     plot_roc_curve(y_true, y_pred_proba, mimos)
     plot_confusion_matrices(cms, mimos)
-    shap_analysis(mlp_cls, test_loader)
+    shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos)
 
-    lin_model = {}
-    lin_model_charge = LinearRegression()
+    # lin_model = {}
+    # lin_model_charge = LinearRegression()
 
     # set perturbation by really large value
     
