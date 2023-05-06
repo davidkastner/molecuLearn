@@ -7,6 +7,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from itertools import combinations
 from sklearn.linear_model import LogisticRegression, Ridge, LinearRegression, Lasso
+from tqdm import tqdm
 
 def evaluate_model(model, inputs, output="logits"):
     if isinstance(model, torch.nn.Module):
@@ -68,8 +69,7 @@ def lime(perturb_data, data, model, lin_model, n_important = 1):
     important_features = []
     important_features_per_label = []
     n_frames = data.shape[0]
-    for i in range(n_frames):
-        print(f"Progress: {i+1}/{n_frames} frames analyzed")
+    for i in tqdm(range(n_frames)):
         x = data[i,:]
         label = evaluate_model(model, x).argmax()
         x_pert, x_bin = perturb_data(x)
