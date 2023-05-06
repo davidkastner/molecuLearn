@@ -12,24 +12,30 @@ import os
 import click
 
 @click.command()
-@click.option("--pairwise_distances", "-d", is_flag=True, help="Compute pairwise distances.")
-@click.option("--random_forest", "-rf", is_flag=True, help="Run RF workflow.")
-@click.option("--mlp", "-mlp", is_flag=True, help="Run MLP workflow.")
+@click.option("--pairwise_distances", "-pd", is_flag=True, help="Compute pairwise distances.")
+@click.option("--combine_qm_charges", "-cq", is_flag=True, help="Combine charge data across QM single points.")
 @click.option("--pairwise_charge_features", "-pq", is_flag=True, help="Create pairwise charge features.")
 @click.option("--final_charge_dataset", "-fq", is_flag=True, help="Calculate final charge datasest.")
+@click.option("--calc_esp", "-ce", is_flag=True, help="Calculates ESP from Multiwfn output.")
+@click.option("--esp_dataset", "-esp", is_flag=True, help="Creates dataset with ESP features.")
+@click.option("--random_forest", "-rf", is_flag=True, help="Run RF workflow.")
+@click.option("--mlp", "-mlp", is_flag=True, help="Run MLP workflow.")
 def cli(
     pairwise_distances,
+    combine_qm_charges,
+    final_charge_dataset,
+    pairwise_charge_features,
+    calc_esp,
+    esp_dataset,
     random_forest,
     mlp,
-    pairwise_charge_features,
-    final_charge_dataset,
     ):
     """
     The overall command-line interface (CLI) entry point.
     The CLI interacts with the rest of the package.
 
     A complete reference of molecuLearn functionality.
-    This is advantagous because it quickly introduces so molecuLearn.
+    This is advantagous because it quickly introduces molecuLearn.
     Specificaly, to the complete scope of available functionality.
     It also improves long-term maintainability and readability.
 
@@ -53,6 +59,62 @@ def cli(
         outfile = f"{geometry_name}_pairwise_distance.csv"
         ml.manage.check_file_exists(f"{geometry_name}_geometry.pdb")
         ml.process.pairwise_distances_csv(infile, outfile, replicate_info)
+
+    elif combine_qm_charges:
+        click.echo("> Combining the QM charge data across single points:")
+        click.echo("> Loading...")
+        import ml.process
+
+        compute_replicates = input("> Would you like this performed across replicates (y/n)? ")
+        if compute_replicates == "n":
+            ml.process.combine_qm_replicates()
+        elif compute_replicates == "y":
+            ml.process.combine_qm_charges(0, 39901, 100)
+        else:
+            print(f"> {compute_replicates} is not a valid response.")
+
+    elif final_charge_dataset:
+        click.echo("> Create final charge data set:")
+        click.echo("> Loading...")
+        import ml.process
+
+        # Remove non-shared amino acids
+        mutations = [2,19,22]
+        charges_df = ml.process.final_charge_dataset("all_charges.xls", "template.pdb", mutations)
+
+    elif pairwise_charge_features:
+        click.echo("> Generate pairwise charge data:")
+        click.echo("> Loading...")
+        import ml.process
+        
+        structure = input("What is your structure? ")
+        ml.process.pairwise_charge_features(structure)
+
+    elif calc_esp:
+        click.echo("> Computed charge schemes with Multiwfn:")
+        click.echo("> Loading...")
+        import ml.process
+        first = 0
+        last = 39901
+        step = 100
+        ml.process.collect_esp_components(first, last, step)
+
+    elif esp_dataset:
+        click.echo("> Create a charge dataset that contains ESP-derived features:")
+        click.echo("> Loading...")
+        import ml.process
+
+        geometry_name = os.getcwd().split("/")[-1]
+        # Combine charges from the replicates
+        ml.process.combine_qm_replicates()
+        # Remove non-shared amino acids
+        mutations = [2,19,22]
+        charges_df = ml.process.final_charge_dataset("all_charges.xls", "template.pdb", mutations)
+        # Add ESP features into the data set
+        esp_scheme = input("What ESP scheme would you like to add? ")
+        geometry_name = os.getcwd().split("/")[-1]
+        ml.process.add_esp_charges(charges_df, esp_scheme, geometry_name)
+
 
     elif random_forest:
         click.echo("> Run Random Forest model on the cleaned data:")
@@ -112,22 +174,6 @@ def cli(
         ml.mlp.plot_confusion_matrices(cms, mimos)
         # ml.mlp.shap_analysis(mlp_cls, test_loader)
 
-    elif pairwise_charge_features:
-        click.echo("> Generate pairwise charge data:")
-        click.echo("> Loading...")
-        import ml.process
-        
-        structure = input("What is your structure? ")
-        ml.process.pairwise_charge_features(structure)
-
-    elif final_charge_dataset:
-        click.echo("> Create final charge data set:")
-        click.echo("> Loading...")
-        import ml.process
-
-        # Which amino acids to remove
-        mutations = [2,19,22]
-        charges_df = ml.process.final_charge_dataset("all_charges.xls", "template.pdb", mutations)
 
     else:
         click.echo("No functionality was requested.\nTry --help.")
