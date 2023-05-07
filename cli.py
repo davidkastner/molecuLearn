@@ -129,14 +129,17 @@ def cli(
         ml.rf.plot_data(df_charge, df_dist, mimos)
 
         # Preprocess the data and split into train and test sets
-        data_split = ml.rf.preprocess_data(df_charge, df_dist, mimos)
+        data_split, df_dist, df_charge = ml.rf.preprocess_data(df_charge, df_dist, mimos, 2, test_frac=0.875)
 
         # Train a random forest classifier for each feature
         rf_cls = ml.rf.train_random_forest(data_split, n_trees=200, max_depth=50)
 
-        # Evaluate classifiers and plot confusion matrices
-        cms = ml.rf.evaluate(rf_cls, data_split, mimos)
+        # Evaluate classifiers and plot confusion matrices, roc curves, SHAP dot plots and Gini importance bar plots
+        cms,y_true, y_pred_proba = ml.rf.evaluate(rf_cls, data_split, mimos)
+        ml.rf.plot_roc_curve(y_true, y_pred_proba, mimos)
         ml.rf.plot_confusion_matrices(cms, mimos)
+        ml.rf.shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos)
+        ml.rf.plot_gini_importance(rf_cls, df_dist, df_charge)
 
     elif mlp:
         click.echo("> Run MLP model on the cleaned data:")
@@ -147,19 +150,18 @@ def cli(
         ml.mlp.format_plots()
         mimos = ["mc6", "mc6s", "mc6sa"]
         data_loc = input("   > Where are your data files located? ")
-        # data_loc = '/Users/husainadamji/Software/molecuLearn/ml/data'
         df_charge, df_dist = ml.mlp.load_data(mimos, data_loc)
         ml.mlp.plot_data(df_charge, df_dist, mimos)
 
         # Preprocess the data and split into train, validation, and test sets
-        data_split, df_dist, df_charge = ml.mlp.preprocess_data(df_charge, df_dist, mimos, 1)
+        data_split, df_dist, df_charge = ml.mlp.preprocess_data(df_charge, df_dist, mimos, 2, val_frac=0.75, test_frac=0.875)
 
         # Build the train, validation, and test dataloaders
         train_loader, val_loader, test_loader = ml.mlp.build_dataloaders(data_split)
 
+        # Get input sizes for each dataset and build model architectures
         n_dist = data_split['dist']['X_train'].shape[1]
         n_charge = data_split['charge']['X_train'].shape[1]
-
         layers = {'dist': (ml.mlp.torch.nn.Linear(n_dist, 128), ml.mlp.torch.nn.ReLU(), 
                            ml.mlp.torch.nn.Linear(128, 128), ml.mlp.torch.nn.ReLU(), 
                            ml.mlp.torch.nn.Linear(128, 128), ml.mlp.torch.nn.ReLU(), 
@@ -169,10 +171,13 @@ def cli(
                            ml.mlp.torch.nn.Linear(128, 128), ml.mlp.torch.nn.ReLU(), 
                            ml.mlp.torch.nn.Linear(128, 3))
                 }
-
+        
+        # Train model on training and validation data
         mlp_cls, train_loss_per_epoch, val_loss_per_epoch =ml.mlp.train(layers, 1e-3, 100, train_loader, val_loader, 'cpu')
         ml.mlp.plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch)
+        # Evaluate model on test data
         test_loss, y_true, y_pred_proba, y_pred, cms = ml.mlp.evaluate_model(mlp_cls, test_loader, 'cpu', mimos)
+        # Plot ROC-AUC curves, confusion matrices and SHAP dot plots
         ml.mlp.plot_roc_curve(y_true, y_pred_proba, mimos)
         ml.mlp.plot_confusion_matrices(cms, mimos)
         ml.mlp.shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos)

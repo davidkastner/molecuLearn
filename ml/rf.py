@@ -1,11 +1,18 @@
 import numpy as np
+import sys
+np.set_printoptions(threshold=sys.maxsize)
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, roc_curve, auc
+from sklearn.preprocessing import StandardScaler, LabelBinarizer
+from sklearn.utils import shuffle
 from statistics import mean
 import matplotlib.pyplot as plt
 import seaborn as sn
 from statistics import mean
+from itertools import cycle
+import shap
+import ml.lime
 
 
 def load_data(mimos, data_loc):
@@ -33,13 +40,15 @@ def load_data(mimos, data_loc):
     # Iterate through each mimo in the list
     for mimo in mimos:
         # Load charge and distance data from CSV files and store them in dictionaries
-        df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charges.csv")
-        df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distances.csv")
+        df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charges_esp.csv")
+        df_charge[mimo] = df_charge[mimo].drop(columns=['replicate'])
+        df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distance_v2.csv")
+        df_dist[mimo] = df_dist[mimo].drop(columns=['replicate'])
 
     return df_charge, df_dist
 
 
-def preprocess_data(df_charge, df_dist, mimos, test_frac=0.8):
+def preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.8):
     """
     Preprocess data for training and testing by splitting it based on the given test fraction.
 
@@ -51,6 +60,14 @@ def preprocess_data(df_charge, df_dist, mimos, test_frac=0.8):
         Dictionary with mimo names as keys and distance data as values in pandas DataFrames.
     mimos : list of str
         List of mimo names.
+    data_split_type : int
+        Integer value of 1 or 2 to pick the type of data split. 
+        1 corresponds to splitting each trajectory into train/test then stitching together the
+        train/test sets from each trajectory together to get an overall train/test set. The
+        splitting within each trajectory is based on the provided fractional parameter.
+        2 corresponds to splitting the entire dataset such that the first set of trajectories belong to
+        the train set, and the second set of trajectories belong to the test set. The splitting of the
+        trajectories is based on the provided fractional parameter.
     test_frac : float, optional, default: 0.8
         Fraction of data to use for training (the remaining data will be used for testing).
 
@@ -58,8 +75,21 @@ def preprocess_data(df_charge, df_dist, mimos, test_frac=0.8):
     -------
     data_split : dict
         Dictionary containing the training and testing data for distance and charge features.
+    df_dist : dict
+        Revised dictionary with mimo names as keys and distance data as values in pandas DataFrames.
+    df_charge : dict
+        Revised dictionary with mimo names as keys and charge data as values in pandas DataFrames. 
     """
 
+    # From df_dist, drop any distances between amino acids if either one of them has the mutants Glu3, Aib20, or Aib23.
+    for mimo in mimos:
+        if mimo == "mc6":
+            df_dist[mimo] = df_dist[mimo].loc[:, ~df_dist[mimo].columns.str.contains('GLU3|GLN20|SER23')]
+        elif mimo == "mc6s":
+            df_dist[mimo] = df_dist[mimo].loc[:, ~df_dist[mimo].columns.str.contains('LEU3|GLN20|SER23')]
+        elif mimo == "mc6sa":
+            df_dist[mimo] = df_dist[mimo].loc[:, ~df_dist[mimo].columns.str.contains('LEU3|AIB20|AIB23')]
+    
     class_assignment = {"mc6": 0, "mc6s": 1, "mc6sa": 2}
     features = ["dist", "charge"]
 
@@ -72,28 +102,86 @@ def preprocess_data(df_charge, df_dist, mimos, test_frac=0.8):
 
     # Assign class labels for each mimo based on the class_assignment dictionary
     for mimo in mimos:
-        y_aux = np.zeros((df_dist[mimo].shape[0], 3))
-        y_aux[:, class_assignment[mimo]] = 1
+        y_aux = np.full((df_dist[mimo].shape[0],), class_assignment[mimo], dtype=int)
         y["dist"][mimo] = y_aux
 
-        y_aux = np.zeros((df_charge[mimo].shape[0], 3))
-        y_aux[:, class_assignment[mimo]] = 1
+        y_aux = np.full((df_charge[mimo].shape[0],), class_assignment[mimo], dtype=int)
         y["charge"][mimo] = y_aux
 
     data_split = {}
-
-    # Split data into training and testing sets based on the test_frac parameter
-    for feature in features:
-        n_cutoff = int(test_frac * X[feature]["mc6"].shape[0])
-
-        data_split[feature] = {
-            "X_train": np.vstack([X[feature][mimo][0:n_cutoff, :] for mimo in mimos]),
-            "X_test": np.vstack([X[feature][mimo][n_cutoff:, :] for mimo in mimos]),
-            "y_train": np.vstack([y[feature][mimo][0:n_cutoff, :] for mimo in mimos]),
-            "y_test": np.vstack([y[feature][mimo][n_cutoff:, :] for mimo in mimos]),
+    if data_split_type == 1:
+        X_train = {
+                  "dist": {mimo: np.empty((0, df_dist[mimo].shape[1])) for mimo in mimos},
+                  "charge": {mimo: np.empty((0, df_charge[mimo].shape[1])) for mimo in mimos},
         }
 
-    return data_split
+        X_test = {
+                 "dist": {mimo: np.empty((0, df_dist[mimo].shape[1])) for mimo in mimos},
+                 "charge": {mimo: np.empty((0, df_charge[mimo].shape[1])) for mimo in mimos},
+        }
+
+        y_train = {
+                  "dist": {mimo: np.empty((0,), dtype=int) for mimo in mimos},
+                  "charge": {mimo: np.empty((0,), dtype=int) for mimo in mimos},
+        }
+
+        y_test = {
+                 "dist": {mimo: np.empty((0,), dtype=int) for mimo in mimos},
+                 "charge": {mimo: np.empty((0,), dtype=int) for mimo in mimos},
+        }
+
+        # Split data into training and testing sets based on the test_frac parameters and normalize data.
+        for feature in features:
+            # Split data
+            test_cutoff = int(test_frac * (X[feature]["mc6"].shape[0] / 8))
+            count = 0
+            while count < int(X[feature]["mc6"].shape[0]):
+                for mimo in mimos:
+                    X_train[feature][mimo] = np.vstack((X_train[feature][mimo], X[feature][mimo][count:count+test_cutoff, :]))
+                    X_test[feature][mimo] = np.vstack((X_test[feature][mimo], X[feature][mimo][count+test_cutoff:count+int(X[feature][mimo].shape[0]/8), :]))
+                    y_train[feature][mimo] = np.concatenate((y_train[feature][mimo], y[feature][mimo][count:count+test_cutoff]))
+                    y_test[feature][mimo] = np.concatenate((y_test[feature][mimo], y[feature][mimo][count+test_cutoff:count+int(y[feature][mimo].shape[0]/8)]))
+                count += int(X[feature]["mc6"].shape[0] / 8)
+
+            data_split[feature] = {
+                "X_train": np.vstack([X_train[feature][mimo] for mimo in mimos]),
+                "X_test": np.vstack([X_test[feature][mimo] for mimo in mimos]),
+                "y_train": np.concatenate([y_train[feature][mimo] for mimo in mimos]),
+                "y_test": np.concatenate([y_test[feature][mimo] for mimo in mimos]),
+            }
+
+            # Normalize data
+            x_scaler = StandardScaler()
+            x_scaler.fit(data_split[feature]['X_train'])
+            data_split[feature]['X_train'] = x_scaler.transform(data_split[feature]['X_train'])
+            data_split[feature]['X_test'] = x_scaler.transform(data_split[feature]['X_test'])
+
+            # Shuffle data splits while ensuring correspondence between features and labels.
+            data_split[feature]['X_train'], data_split[feature]['y_train'] = shuffle(data_split[feature]['X_train'], data_split[feature]['y_train'], random_state=42)
+            data_split[feature]['X_test'], data_split[feature]['y_test'] = shuffle(data_split[feature]['X_test'], data_split[feature]['y_test'], random_state=42)
+
+    elif data_split_type == 2:
+        for feature in features:
+            test_cutoff = int(test_frac * X[feature]["mc6"].shape[0])
+
+            data_split[feature] = {
+                "X_train": np.vstack([X[feature][mimo][0:test_cutoff, :] for mimo in mimos]),
+                "X_test": np.vstack([X[feature][mimo][test_cutoff:, :] for mimo in mimos]),
+                "y_train": np.concatenate([y[feature][mimo][0:test_cutoff] for mimo in mimos]),
+                "y_test": np.concatenate([y[feature][mimo][test_cutoff:] for mimo in mimos]),
+            }
+
+            # Normalize data
+            x_scaler = StandardScaler()
+            x_scaler.fit(data_split[feature]['X_train'])
+            data_split[feature]['X_train'] = x_scaler.transform(data_split[feature]['X_train'])
+            data_split[feature]['X_test'] = x_scaler.transform(data_split[feature]['X_test'])
+
+            # Shuffle data splits while ensuring correspondence between features and labels.
+            data_split[feature]['X_train'], data_split[feature]['y_train'] = shuffle(data_split[feature]['X_train'], data_split[feature]['y_train'], random_state=42)
+            data_split[feature]['X_test'], data_split[feature]['y_test'] = shuffle(data_split[feature]['X_test'], data_split[feature]['y_test'], random_state=42)
+
+    return data_split, df_dist, df_charge
 
 
 def train_random_forest(data_split, n_trees, max_depth):
@@ -147,28 +235,28 @@ def evaluate(rf_cls, data_split, mimos):
     -------
     cms : dict
         Dictionary containing confusion matrices for distance and charge features.
+    y_true : dict
+        Dictionary containing 1D-array test data ground truth labels for distance and charge features.
+    y_pred_proba : dict
+        Dictionary containing softmax probabilities (2D-array, Ncolumns = number of classes) of the 
+        predicted labels for distance and charge features.
     """
 
     features = ["dist", "charge"]
-    y_pred = {}
+    y_pred_proba = {}
+    y_true = {}
     cms = {}
-
     for feature in features:
-        y_pred[feature] = rf_cls[feature].predict(data_split[feature]["X_test"])
+        y_pred_proba[feature] = rf_cls[feature].predict_proba(data_split[feature]["X_test"])
+        y_pred = rf_cls[feature].predict(data_split[feature]["X_test"])
 
-        # Replace the lin_idx() function with its implementation
-        true_labels = [
-            data_split[feature]["y_test"][i, :].argmax()
-            for i in range(data_split[feature]["y_test"].shape[0])
-        ]
-        pred_labels = [
-            y_pred[feature][i, :].argmax() for i in range(y_pred[feature].shape[0])
-        ]
+        true_labels = data_split[feature]["y_test"]
+        y_true[feature] = true_labels
 
-        cm = confusion_matrix(pred_labels, true_labels)
+        cm = confusion_matrix(y_pred, true_labels)
         cms[feature] = pd.DataFrame(cm, mimos, mimos)
 
-    return cms
+    return cms, y_true, y_pred_proba
 
 
 def plot_data(df_charge, df_dist, mimos):
@@ -209,6 +297,51 @@ def plot_data(df_charge, df_dist, mimos):
     plt.savefig("rf_data.png", bbox_inches="tight", format="png", dpi=300)
     plt.close()
 
+def plot_roc_curve(y_true, y_pred_proba, mimos):
+    """
+    Plot the ROC curve for the test data of the charge and distance features.
+    Parameters
+    ----------
+    y_true : dict
+        Dictionary containing 1D-array test data ground truth labels for distance and charge features.
+    y_pred_proba : dict
+        Dictionary containing softmax probabilities (2D-array, Ncolumns = number of classes) of the 
+        predicted labels for distance and charge features.
+    mimos : list
+        List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
+    """
+
+    features = ['dist', 'charge']
+
+    lb = {}
+    for feature in features:
+        lb[feature] = LabelBinarizer()
+        lb[feature].fit(y_true[feature])
+
+    # Loop through each feature and plot ROC curve
+    for feature in features:
+        fpr = dict()
+        tpr = dict()
+        roc_auc = dict()
+        for j in range(len(mimos)):
+            y_true_j = lb[feature].transform(y_true[feature])[:, j]
+            fpr[j], tpr[j], _ = roc_curve(y_true_j, y_pred_proba[feature][:, j])
+            roc_auc[j] = auc(fpr[j], tpr[j])
+
+        plt.figure()
+        colors = cycle(['red', 'blue', 'green'])
+        for j, color in zip(range(len(mimos)), colors):
+            plt.plot(fpr[j], tpr[j], color=color, lw=2,
+                     label='ROC curve (area = %0.2f) for class %s' % (roc_auc[j], mimos[j]))
+        plt.plot([0, 1], [0, 1], 'k--', lw=2)
+        plt.xlim([-0.05, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel('false positive rate', weight='bold')
+        plt.ylabel('true positive rate', weight='bold')
+        plt.title('Multi-class classification ROC for %s features' % feature, weight='bold')
+        plt.legend(loc='best')
+        plt.savefig("rf_roc_" + feature + ".png", bbox_inches="tight", format="png", dpi=300)
+        plt.close()
 
 def plot_confusion_matrices(cms, mimos):
     """
@@ -246,6 +379,90 @@ def plot_confusion_matrices(cms, mimos):
     plt.savefig("rf_cm.png", bbox_inches="tight", format="png", dpi=300)
     plt.close()
 
+def shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos):
+    """
+    Plot SHAP dot plots for each mimichrome (for both charge and distance features)
+    to identify contribution of each feature to the prediction for a specific instance.
+    Parameters
+    ----------
+    rf_cls : dict
+        Dictionary containing trained RF classifiers for distance and charge features
+    data_split : dict
+        Dictionary containing the training and testing data for distance and charge features.
+        and charge features
+    df_dist : dict
+        Dictionary of DataFrames containing distance data for each MIMO type.
+    df_charge : dict
+        Dictionary of DataFrames containing charge data for each MIMO type.
+    mimos : list
+        List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
+    """
+
+    features = ['dist', 'charge']
+
+    df = {"dist": df_dist, "charge": df_charge}
+
+    shap_values = {}
+    test = {}
+    for i, feature in enumerate(features):
+        # Load in a random batch from the test dataloader and interpret predictions for 156 data points
+        test_features = data_split[feature]["X_test"]
+        # Define the first 100 datapoints as the background used as reference when calculating SHAP values
+        background = test_features[:100]
+        test[feature] = test_features[-156:] # Same number of test data points as MLP
+        explainer = shap.TreeExplainer(rf_cls[feature], data=background)
+        shap_values[feature] = explainer.shap_values(test[feature])
+        
+    # For each mimichrome, plot the SHAP values as dot plots
+    for i in range(len(mimos)):
+        # Each mimichrome has two datasets: charges and features
+        fig, axs = plt.subplots(1, 2, figsize=(20, 5))
+        for j, ax in enumerate(axs):
+            plt.sca(ax)
+            shap.summary_plot(shap_values[features[j]][i], test[features[j]], feature_names=df[features[j]][mimos[i]].columns.to_list(), show=False)
+            axs[j].set_title(f"{features[j]}, {mimos[i]}", fontweight="bold")
+        plt.savefig(f"rf_shap_{mimos[i]}.png", bbox_inches="tight", format="png", dpi=300)
+        plt.close()
+
+def plot_gini_importance(rf_cls, df_dist, df_charge):
+    """
+    Plot Gini importance bar plots for the top 20 features for each feature type (charge
+    and distance).
+    Parameters
+    ----------
+    rf_cls : dict
+        Dictionary containing trained RF classifiers for distance and charge features
+    df_dist : dict
+        Dictionary of DataFrames containing distance data for each MIMO type.
+    df_charge : dict
+        Dictionary of DataFrames containing charge data for each MIMO type.
+    """    
+
+    features = ['dist', 'charge']
+
+    df = {"dist": df_dist, "charge": df_charge}
+
+    gini_importance = {}
+    top_gini_importance = {}
+    top_feature_names = {}
+    fig, axs = plt.subplots(1, 2, figsize=(20, 5))
+    for i, feature in enumerate(features):
+        # Obtain importances from the trained model attribute and sort
+        gini_importance[feature] = rf_cls[feature].feature_importances_
+        sorted_indices = np.argsort(gini_importance[feature])[::-1]
+        top_indices = sorted_indices[:20]
+        top_gini_importance[feature] = gini_importance[feature][top_indices]
+        # Get corresponding feature names
+        all_feature_names = df[feature]["mc6"].columns.to_list() # All mimo classes havev same feature labels
+        top_feature_names[feature] = [all_feature_names[j] for j in top_indices]
+
+        axs[i].bar(range(len(top_gini_importance[feature])), top_gini_importance[feature], tick_label=top_feature_names[feature], color='red')
+        axs[i].set_xlabel('features', weight="bold")
+        axs[i].set_ylabel('Gini importance', weight="bold")
+        axs[i].set_title(f"top 20 Gini importances for all classes for {feature} feature", weight="bold")
+        axs[i].tick_params(axis='x', rotation=90)
+    plt.savefig(f"rf_gini.png", bbox_inches="tight", format="png", dpi=300)
+    plt.close()
 
 def format_plots() -> None:
     """
@@ -277,11 +494,14 @@ if __name__ == "__main__":
     plot_data(df_charge, df_dist, mimos)
 
     # Preprocess the data and split into train and test sets
-    data_split = preprocess_data(df_charge, df_dist, mimos)
+    data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, 1)
 
     # Train a random forest classifier for each feature
     rf_cls = train_random_forest(data_split, n_trees=200, max_depth=50)
 
-    # Evaluate classifiers and plot confusion matrices
-    cms = evaluate(rf_cls, data_split, mimos)
+    # Evaluate classifiers and plot confusion matrices, roc curves, and SHAP dot plots and Gini importance bar plots
+    cms, y_true, y_pred_proba = evaluate(rf_cls, data_split, mimos)
+    plot_roc_curve(y_true, y_pred_proba, mimos)
     plot_confusion_matrices(cms, mimos)
+    shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos)
+    plot_gini_importance(rf_cls, df_dist, df_charge)
