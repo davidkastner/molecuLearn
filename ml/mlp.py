@@ -11,8 +11,8 @@ from statistics import mean
 import torch
 from itertools import cycle
 import shap
-# import lime
-import ml.lime
+import lime_utils
+#import ml.lime
 
 def gradient_step(model, dataloader, optimizer, device):
 
@@ -599,7 +599,7 @@ def shap_analysis(mlp_cls, test_dataloader, df_dist, df_charge, mimos):
 def plot_lime_hists(important_features, n_features, bin_labels = None, savepath=None, title =""):
     bin_edges = np.linspace(-1/2, n_features-1/2, n_features+1)
     fig, ax = plt.subplots()
-    counts = ax.hist(important_features, bins = bin_edges, label = "most important feature")
+    counts, _, _ = ax.hist(important_features, bins = bin_edges, label = "most important feature")
     if bin_labels != None:
         ax.set_xticks(range(n_features))
         ax.set_xticklabels(bin_labels, rotation = 90)
@@ -682,7 +682,7 @@ if __name__ == "__main__":
     format_plots()
     mimos = ["mc6", "mc6s", "mc6sa"]
     # data_loc = input("   > Where are your data files located? ")
-    data_loc = '/Users/husainadamji/Software/molecuLearn/ml/data'
+    data_loc = 'data/'
     df_charge, df_dist = load_data(mimos, data_loc)
     plot_data(df_charge, df_dist, mimos)
 
@@ -695,14 +695,15 @@ if __name__ == "__main__":
     n_dist = data_split['dist']['X_train'].shape[1]
     n_charge = data_split['charge']['X_train'].shape[1]
 
-    layers = {'dist': (torch.nn.Linear(n_dist, 128), torch.nn.ReLU(), 
-                       torch.nn.Linear(128, 128), torch.nn.ReLU(), 
-                       torch.nn.Linear(128, 128), torch.nn.ReLU(), 
-                       torch.nn.Linear(128, 3)),
-              'charge': (torch.nn.Linear(n_charge, 128), torch.nn.ReLU(), 
-                         torch.nn.Linear(128, 128), torch.nn.ReLU(), 
-                         torch.nn.Linear(128, 128), torch.nn.ReLU(), 
-                         torch.nn.Linear(128, 3))
+    layerwidth = 128
+    layers = {'dist': (torch.nn.Linear(n_dist, layerwidth), torch.nn.ReLU(), 
+                       #torch.nn.Linear(layerwidth, layerwidth), torch.nn.ReLU(), 
+                       torch.nn.Linear(layerwidth, layerwidth), torch.nn.ReLU(), 
+                       torch.nn.Linear(layerwidth, 3)),
+              'charge': (torch.nn.Linear(n_charge, layerwidth), torch.nn.ReLU(), 
+                         #torch.nn.Linear(layerwidth, layerwidth), torch.nn.ReLU(), 
+                         torch.nn.Linear(layerwidth, layerwidth), torch.nn.ReLU(), 
+                         torch.nn.Linear(layerwidth, 3))
              }
 
     mlp_cls, train_loss_per_epoch, val_loss_per_epoch =train(layers, 1e-3, 100, train_loader, val_loader, 'cpu')
@@ -712,51 +713,17 @@ if __name__ == "__main__":
     plot_confusion_matrices(cms, mimos)
     shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos)
 
-
-    # set perturbation by really large value
-    # use ordinary least squares to predict logits
-    # alternative choices include regularized least squares (ridge regression, 
-    # Lasso or elastic net) or (regularized)logistic regression. 
-    lin_model = LinearRegression()
-    
-    # using lime
-    
-    
-    ## Charge data
-    feature = 'charge'
-    feature_labels = list(df_charge['mc6'].columns)
-    perturbations = lambda x : lime.perturb_data(x, 10000, 1) 
-    data = data_split[feature]['X_test']
-    model = mlp_cls[feature]
-    
-    important_features, ws, counts = lime_analysis(data, model, lin_model, perturbations, mimos, 
-                                                   feature_labels = feature_labels,
-                                                   fig_title="test",
-                                                   fig_savepath="figures/mlp_lime_charge_test")
-    print_important_features(feature_labels, counts)
+    mlp = lambda x : lime_utils.evaluate_model(mlp_cls['charge'], x)
+    data = data_split['charge']['X_test']
+    feature_names = list(df_charge['mc6'].columns)
+        
+    important_features, y_preds, avg_scores, avg_scores_by_label = lime_utils.lime_analysis(data, mlp, mimos, feature_names) 
+    n_max = 10
+    lime_utils.plot_importance_ranking(avg_scores, feature_names, n_max)    
+    lime_utils.plot_importance_ranking_by_label(avg_scores_by_label, feature_names, mimos, n_max, stacked=False)  
+    lime_utils.plot_importance_ranking_by_label(avg_scores_by_label, feature_names, mimos, n_max, stacked=True)  
+    #mlp = mlp_cls['charge']
+    #data = data_split['charge']['X_test']
+    #important_features, y_preds, avg_scores, avg_scores_by_label
     
     
-
-    feature = 'dist'
-    feature_labels = None
-    perturbations = lambda x : lime.perturb_data(x, 1000, 1) 
-    data = data_split[feature]['X_test']
-    model = mlp_cls[feature]
-    
-    important_features, ws, counts = lime_analysis(data, model, lin_model, perturbations, mimos, 
-                                                   feature_labels = feature_labels,
-                                                   fig_title="test",
-                                                   fig_savepath="figures/mlp_lime_dist_test")
-    print_important_features(feature_labels, counts)
-    
-    
-    # this is just for debugging and playing around
-    x = data[0,:]
-    y_true = lime.evaluate_model(model, x)
-    label = y_true.argmax()
-    x_pert, x_bin = lime.perturb_data(x, 30, 1)
-    y_pert = lime.evaluate_model(model, x_pert)
-    test=lin_model.fit(x_bin, y_pert)
-    y_pert.argmax(axis=1)
-    
-

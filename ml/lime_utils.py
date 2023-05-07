@@ -1,7 +1,10 @@
 from tqdm import tqdm
+from sklearn.ensemble import RandomForestClassifier
 import matplotlib.pyplot as plt
 import lime 
 import numpy as np
+import torch
+import sklearn
 
 def lime_analysis(data, model, class_names, feature_names):
     explainer = lime.lime_tabular.LimeTabularExplainer(data, feature_names=feature_names, 
@@ -156,4 +159,19 @@ def plot_importance_ranking_by_label(avg_scores_by_label, feature_names, class_n
        fig.tight_layout()
        if savepath != None:
            fig.savefig(savepath+"_avg_importance_by_label.png")
-    
+
+def evaluate_model(model, inputs):
+    if isinstance(model, torch.nn.Module):
+        # For PyTorch model
+        model.eval()
+        with torch.no_grad():
+            inputs = torch.Tensor(inputs)
+            logits = model(inputs)
+            return torch.nn.functional.softmax(logits, dim=-1).numpy()
+        
+    elif isinstance(model, RandomForestClassifier):
+        # For scikit-learn random forest model
+        return model.predict_proba(inputs)
+
+    else:
+        raise ValueError("Invalid model type. Supported types: PyTorch nn.Module, scikit-learn RandomForestClassifier")
