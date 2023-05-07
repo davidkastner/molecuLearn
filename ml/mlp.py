@@ -11,7 +11,7 @@ from statistics import mean
 import torch
 from itertools import cycle
 import shap
-import lime_utils
+import ml.lime_utils
 
 def gradient_step(model, dataloader, optimizer, device):
 
@@ -618,57 +618,7 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
     plt.savefig("mlp_shap.png", bbox_inches="tight", format="png", dpi=300)
     plt.show()
 
-
-def plot_lime_hists(important_features, n_features, bin_labels = None, savepath=None, title =""):
-    bin_edges = np.linspace(-1/2, n_features-1/2, n_features+1)
-    fig, ax = plt.subplots()
-    counts, _, _ = ax.hist(important_features, bins = bin_edges, label = "most important feature")
-    if bin_labels != None:
-        ax.set_xticks(range(n_features))
-        ax.set_xticklabels(bin_labels, rotation = 90)
-    ax.set_title(title)
-    ax.set_ylabel("number of frames")
-    if savepath != None:
-        fig.savefig(savepath)
-    return counts
-
-def plot_lime_hists_by_label(important_features, labels, n_features, bin_labels = None, savepath=None, title =""):
-    bin_edges = np.linspace(-1/2, n_features-1/2, n_features+1)
-    fig, ax = plt.subplots()
-    ax.hist(important_features, bins = bin_edges, stacked = True, label = labels)
-    if bin_labels != None:
-        ax.set_xticks(range(n_features))
-        ax.set_xticklabels(bin_labels, rotation = 90)
-    ax.set_title(title)
-    ax.set_ylabel("number of frames")
-    ax.legend()
-    if savepath != None:
-        fig.savefig(savepath)
-    pass
-
-def lime_analysis(data, model, lin_model, perturbations, classes, **kwargs):
-    feature_labels = kwargs['feature_labels']
-    fig_title = kwargs['fig_title']
-    fig_savepath = kwargs['fig_savepath']
-    
-    n_features = data.shape[1]
-    pred_labels = lime.evaluate_model(model,data).argmax(axis=1)
-    important_features, ws = lime.lime(perturbations, data, model, lin_model, 10)
-
-    most_important_feature = np.hstack([f[0] for f in important_features])
-    most_important_feature_by_label = [[feat for (i,feat) in enumerate(most_important_feature) if pred_labels[i] == k] 
-                                       for k in range(len(classes))]
-    plot_lime_hists_by_label(most_important_feature_by_label, classes, n_features, feature_labels, fig_savepath+"_label.png", fig_title)
-    counts = plot_lime_hists(np.hstack([f[0] for f in important_features]), n_features, feature_labels, fig_savepath+".png", fig_title)
-    
-    return important_features, ws, counts
    
-
-def print_important_features(feature_labels, counts, n = 5):
-    important_idcs = np.argpartition(-counts, n-1)[0:n]
-    print(f"The {n} most important features in descending order are")
-    print([feature_labels[i] for i in important_idcs])
-
 def format_plots() -> None:
     """
     General plotting parameters for the Kulik Lab.
@@ -704,8 +654,7 @@ if __name__ == "__main__":
     # Get datasets
     format_plots()
     mimos = ["mc6", "mc6s", "mc6sa"]
-    # data_loc = input("   > Where are your data files located? ")
-    data_loc = 'data/'
+    data_loc = input("   > Where are your data files located? ")
     df_charge, df_dist = load_data(mimos, data_loc)
     plot_data(df_charge, df_dist, mimos)
 
