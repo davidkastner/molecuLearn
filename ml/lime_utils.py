@@ -7,6 +7,35 @@ import torch
 import sklearn
 
 def lime_analysis(data, model, class_names, feature_names):
+    """
+    
+
+    Parameters
+    ----------
+    data : np.array
+        Input data, each row is a featurization of the associated data point.
+    model : 
+        classifier that takes in feature vector or matrix and returns logits for
+        the associated features
+    class_names : list
+        List of strings carrying the class names in the same order as the
+        model outputs is encoded.
+    feature_names : list of strings
+        names of all model features
+
+    Returns
+    -------
+    important_features: list
+        List of feature importance ranking for each frame.
+        Each entry is a list of tuples (feature, importance score) ranked in 
+        descending order according to abs value of the importance score.
+    avg_important_features: list
+        List of importance scores computed by averaging the absolute value
+        of lime importance scores over all data points
+    avg_important_features: Dict
+        Dictionary containing the average importances of different features but
+        for separetly for each label as predicted by the model. 
+    """
     explainer = lime.lime_tabular.LimeTabularExplainer(data, feature_names=feature_names, 
                                                        class_names=class_names, 
                                                        discretize_continuous=True)
@@ -19,6 +48,27 @@ def lime_analysis(data, model, class_names, feature_names):
            get_avg_importance_by_label(important_features, class_names, y_preds)
 
 def extract_imporant_features(explainer, model, data):
+    """
+    
+
+    Parameters
+    ----------
+    explainer : 
+        lime explainer class object for the given model and data (see https://github.com/marcotcr/lime)
+    model : 
+        classifier that takes in feature vector or matrix and returns logits for
+        the associated features
+    data : np.array
+        Input data, each row is a featurization of the associated data point.
+
+    Returns
+    -------
+    important_features: list
+        List of feature importance ranking for each frame.
+        Each entry is a list of features ranked in descending order according 
+        to their importance.
+
+    """
     important_features = []
     n_features = data.shape[1]
     for i in tqdm(range(data.shape[0])):
@@ -28,13 +78,71 @@ def extract_imporant_features(explainer, model, data):
     return important_features
 
 def get_score(scores, idx, trafo = lambda x : x):
+    """
+    
+
+    Parameters
+    ----------
+    scores : list
+        List of (feature, importance score) tuples.
+    idx : int
+        Index of feature whose score shall be extracted.
+        
+    trafo : function, optional
+        Transformation that shall be applied upon extraction, often abs value. 
+        The default is lambda x : x.
+
+    Returns
+    -------
+    list
+        extracted and transformed scores for given feature
+
+    """
     return [trafo(s[1]) for s in scores if s[0] == idx]
 
 def get_avg_importance(important_features):
+    """
+    
+
+    Parameters
+    ----------
+    important_features :  list
+        List of (feature, importance score) tuples.
+
+    Returns
+    -------
+    list
+        Mean importance score for each feature obtained by averaging 
+        the absolute value over all data points.
+
+    """
     n_features = len(important_features[0])
     return [np.mean([get_score(f, i, lambda x : abs(x)) for f in important_features]) for i in range(n_features)]
     
 def get_avg_importance_by_label(important_features, class_names, y_preds):
+    """
+    
+
+    Parameters
+    ----------
+    important_features :  list
+        List of lists carrying (feature, importance score) tuples for each data 
+        point.
+    class_names : List
+        List of strings carrying the class labels in an order consistent with 
+        y_preds.
+    y_preds : list/np.array
+        List that carries the model prediction in form of an int index for the
+        respective data points that important_features were computed for.
+
+    Returns
+    -------
+    avg_importance : Dict
+        For each class, this dictionary carries the mean importance score for each feature 
+        obtained by averaging the absolute value of importance scores over all 
+        data points that were labelled to belong to this class by the model. 
+
+    """
     avg_importance = {}
     n_features = len(important_features[0])
     for (k, label) in enumerate(class_names):
@@ -44,14 +152,84 @@ def get_avg_importance_by_label(important_features, class_names, y_preds):
     return avg_importance
 
 def get_nth_mif_by_label(important_features, y_preds, n):
+    """
+    
+
+    Parameters
+    ----------
+    important_features : list
+        List of lists carrying (feature, importance score) tuples for each data 
+        point.
+    y_preds : list/np.array
+        List that carries the model prediction in form of an int index for the
+        respective data points that important_features were computed for.
+    n : int
+        Index of which rank of features shall be extracted.
+
+    Returns
+    -------
+    features_by_label :
+        For each class, this dictionary contains the label of the nth most important
+        feature for all data points that were labelled to belong to this class 
+        by the model.
+
+    """
     features_by_label = [[f[n][0] for (i,f) in enumerate(important_features) if y_preds[i] == k] 
                          for k in range(y_preds.argmax()+1)] 
     return features_by_label
 
 def get_nth_mif(important_features, n):
+    """
+    
+
+    Parameters
+    ----------
+    important_features : list
+        List of lists carrying (feature, importance score) tuples for each data 
+        point.
+    y_preds : list/np.array
+        List that carries the model prediction in form of an int index for the
+        respective data points that important_features were computed for.
+    n : int
+        Index of which rank of features shall be extracted.
+
+    Returns
+    -------
+    list
+        List of the nth most important feature for all data points.
+
+    """
     return [f[n][0] for f in important_features]
 
 def plot_hists(n_max, important_features, class_names, y_preds, **kwargs):
+    """
+    
+
+    Parameters
+    ----------
+    n_max : Int
+        A plot is generated for the first n_max most important features.
+    important_features : list
+        List of lists carrying (feature, importance score) tuples for each data 
+        point.
+    class_names : list
+        list of class names
+    y_preds : list/np.array
+        List that carries the model prediction in form of an int index for the
+        respective data points that important_features were computed for.
+    **kwargs : 
+        savepath - save path but without file extension. 
+        bin_labels - save labels in case the individual bins shall be labelled
+        
+    Returns
+    -------
+    Creates two figures. Each containing n_max different histograms. 
+    The nth plot (from the top) shows the frequency with which a given feature 
+    was the nth most important for classification.
+    The figures are distinct as one shows the histograms without resolution 
+    of predicted labels and the other one with.
+
+    """
     savepath = kwargs['savepath'] if 'savepath' in kwargs.keys() else None
     bin_labels = kwargs['bin_labels'] if 'bin_labels' in kwargs.keys() else None
     
@@ -103,6 +281,26 @@ def plot_hists(n_max, important_features, class_names, y_preds, **kwargs):
     pass
 
 def plot_importance_ranking(avg_scores, feature_names, n_max, **kwargs):
+    """
+    
+
+    Parameters
+    ----------
+    avg_scores : list
+        List of average importance rankings for each feature (in order of the features)
+    feature_names : list
+        List of feature names
+    n_max : Int
+        Number of features
+    **kwargs : 
+        savepath - save path but without file extension. 
+
+    Returns
+    -------
+    Creates a single figure. The figure shows an hbar plot where each bar corresponds
+    to the importance the n_max most important features in descending order
+
+    """
     savepath = kwargs['savepath'] if 'savepath' in kwargs.keys() else None
     
     rankings = np.argsort(-np.array(avg_scores))[0:n_max]
@@ -117,6 +315,34 @@ def plot_importance_ranking(avg_scores, feature_names, n_max, **kwargs):
         fig.savefig(savepath+"_avg_importance.png")
         
 def plot_importance_ranking_by_label(avg_scores_by_label, feature_names, class_names, n_max, stacked = False, **kwargs):
+    """
+    
+
+    Parameters
+    ----------
+    avg_scores_by_label : Dict
+        Dictionary that carries the a list of avg importance scores for each class
+        (in order of the feature names)
+    feature_names : list
+        List of feature names.
+    class_names : list
+        List of class names
+    n_max : int
+        The n_max most important features are plotted
+    stacked : TYPE, optional
+        If stacked = False, the bars for the different features are shown 
+        next to eachother. If stacked = True they are stacked on top of 
+        eachother and the bar is scaled to avg length. 
+        The default is False.
+    **kwargs : 
+        savepath - save path but without file extension. 
+
+    Returns
+    -------
+    Creates a single figure. The figure shows an hbar plot where each bar corresponds
+    to the importance the n_max most important features for each class in descending order.
+
+    """
     savepath = kwargs['savepath'] if 'savepath' in kwargs.keys() else None
     
     
@@ -165,6 +391,13 @@ def plot_importance_ranking_by_label(avg_scores_by_label, feature_names, class_n
         
 
 def evaluate_model(model, inputs):
+    """
+    
+
+    Just a wrapper to enable seamless use for both RF and MLP classifiers.
+    Self-explainatory. 
+
+    """
     if isinstance(model, torch.nn.Module):
         # For PyTorch model
         model.eval()
