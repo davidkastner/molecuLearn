@@ -11,7 +11,6 @@ from statistics import mean
 import torch
 from itertools import cycle
 import shap
-# import lime
 import ml.lime
 
 def gradient_step(model, dataloader, optimizer, device):
@@ -269,6 +268,10 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.6, te
     -------
     data_split : dict
         Dictionary containing the training and testing data for distance and charge features.
+    df_charge : dict
+        Revised dictionary with mimo names as keys and charge data as values in pandas DataFrames. 
+    df_dist : dict
+        Revised dictionary with mimo names as keys and distance data as values in pandas DataFrames. 
     """
 
     # From df_dist, drop any distances between amino acids if either one of them has the mutants Glu3, Aib20, or Aib23.
@@ -473,8 +476,8 @@ def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
         ax[i].plot(val_loss_per_epoch[feature], color='blue', label='validation loss')
         ax[i].set_xlabel('epoch', weight='bold')
         ax[i].set_ylabel('loss', weight='bold')
-        ax[i].set_title(f"{feature}")
-        ax[i].legend(loc='upper right')
+        ax[i].set_title(f"{feature}", weight='bold')
+        ax[i].legend(loc='best')
 
     # Apply tight layout and show the plot
     fig.tight_layout()
@@ -513,8 +516,6 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
             y_true_j = lb[feature].transform(y_true[feature])[:, j]
             fpr[j], tpr[j], _ = roc_curve(y_true_j, y_pred_proba[feature][:, j])
             roc_auc[j] = auc(fpr[j], tpr[j])
-        # fpr["micro"], tpr["micro"], _ = roc_curve(y_true[feature].ravel(), y_pred_proba[feature].ravel())
-        # roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
 
         plt.figure()
         colors = cycle(['red', 'blue', 'green'])
@@ -565,7 +566,25 @@ def plot_confusion_matrices(cms, mimos):
     plt.savefig("mlp_cm.png", bbox_inches="tight", format="png", dpi=300)
     plt.close()
 
-def shap_analysis(mlp_cls, test_dataloader, df_dist, df_charge, mimos):
+def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
+    """
+    Plot SHAP dot plots for each mimichrome (for both charge and distance features)
+    to identify contribution of each feature to the prediction for a specific instance.
+    Parameters
+    ----------
+    mlp_cls : dict
+        Dictionary containing trained MLP classifiers for distance and charge features
+    test_loader : dict
+        Dictionary containing DataLoader object for the test data for distance 
+        and charge features
+    df_dist : dict
+        Dictionary of DataFrames containing distance data for each MIMO type.
+    df_charge : dict
+        Dictionary of DataFrames containing charge data for each MIMO type.
+    mimos : list
+        List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
+    """
+
     features = ['dist', 'charge']
 
     df = {"dist": df_dist, "charge": df_charge}
@@ -573,15 +592,19 @@ def shap_analysis(mlp_cls, test_dataloader, df_dist, df_charge, mimos):
     shap_values = {}
     test = {}
     for i, feature in enumerate(features):
-        batch = next(iter(test_dataloader[feature]))
+        # Load in a random batch from the test dataloader and interpret predictions for 156 data points
+        batch = next(iter(test_loader[feature]))
         data, _ = batch
+        # Define the first 100 datapoints as the background used as reference when calculating SHAP values
         background = data[:100]
         test[feature] = data[100:]
         explainer = shap.DeepExplainer(mlp_cls[feature], background)
         shap_values[feature] = explainer.shap_values(test[feature])
 
+    # For each mimichrome, plot the SHAP values as dot plots
     for i in range(len(mimos)):
-        fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+        # Each mimichrome has two datasets: charges and features
+        fig, axs = plt.subplots(1, 2, figsize=(20, 5))
         for j, ax in enumerate(axs):
             plt.sca(ax)
             shap.summary_plot(shap_values[features[j]][i], test[features[j]], feature_names=df[features[j]][mimos[i]].columns.to_list(), show=False)
@@ -625,8 +648,7 @@ if __name__ == "__main__":
     # Get datasets
     format_plots()
     mimos = ["mc6", "mc6s", "mc6sa"]
-    # data_loc = input("   > Where are your data files located? ")
-    data_loc = '/Users/husainadamji/Software/molecuLearn/ml/data'
+    data_loc = input("   > Where are your data files located? ")
     df_charge, df_dist = load_data(mimos, data_loc)
     plot_data(df_charge, df_dist, mimos)
 
@@ -636,9 +658,9 @@ if __name__ == "__main__":
     # Build the train, validation, and test dataloaders
     train_loader, val_loader, test_loader = build_dataloaders(data_split)
 
+    # Get input sizes for each dataset and build model architectures
     n_dist = data_split['dist']['X_train'].shape[1]
     n_charge = data_split['charge']['X_train'].shape[1]
-
     layers = {'dist': (torch.nn.Linear(n_dist, 128), torch.nn.ReLU(), 
                        torch.nn.Linear(128, 128), torch.nn.ReLU(), 
                        torch.nn.Linear(128, 128), torch.nn.ReLU(), 
@@ -649,31 +671,15 @@ if __name__ == "__main__":
                          torch.nn.Linear(128, 3))
              }
 
+    # Train model on training and validation data
     mlp_cls, train_loss_per_epoch, val_loss_per_epoch =train(layers, 1e-3, 100, train_loader, val_loader, 'cpu')
     plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch)
+    # Evaluate model on test data
     test_loss, y_true, y_pred_proba, y_pred, cms = evaluate_model(mlp_cls, test_loader, 'cpu', mimos)
+    # Plot ROC-AUC curves, confusion matrices and SHAP dot plots
     plot_roc_curve(y_true, y_pred_proba, mimos)
     plot_confusion_matrices(cms, mimos)
     shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos)
-
-    # lin_model = {}
-    # lin_model_charge = LinearRegression()
-
-
-    # fig, axs = plt.subplots(2, 3, figsize=(11,5))
-    # for i, mimo in enumerate(mimos):
-    #     important_feature_charge, ws_charge = lime.lime(lambda x: lime.perturb_data(x, 0.00, 1), df_charge[mimo].to_numpy(), mlp_cls['charge'], lin_model_charge)
-    
-    #     axs[0, i].hist(important_feature_charge, bins=n_charge, range=(0, n_charge-1))
-    #     # plt.show()
-    #     plt.savefig(f"{mimo}_charge.png")
-
-    #     lin_model_dist = LinearRegression()
-    #     important_feature_dist, ws_dist = lime.lime(lambda x: lime.perturb_data(x, 0.00, 1), df_dist[mimo].to_numpy(), mlp_cls['dist'], lin_model_dist)
-    
-    #     axs[1, i].hist(important_feature_dist, bins=n_dist, range=(0, n_dist-1))
-    #     # plt.show()
-    #     plt.savefig(f"{mimo}_dist.png")
 
 
 

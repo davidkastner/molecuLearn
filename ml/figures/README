@@ -1,0 +1,13 @@
+** These figures are for charges_esp.csv and pairwise_distance_v2.csv data files for each mimichrome.
+
+data_split_type_1 : 
+
+We split each trajectory into a train/test (80/20) split or train/val/test (60/20/20) split.
+We maintain order of the frames in a trajectory such that the first few are train, the next few are val (if used) and the last few are test.
+We then stitch together the corresponding splits from all 8 trajectories.
+
+data_split_type_2: 
+
+We split the ordered frames (3200) into a train/test (87.5/12.5) split or train/val/test (75/12.5/12.5) split.
+We maintain order of the frames such that the first few are train, the next few are val (if used) and the last few are test.
+This implies the trajectories are split into 7/1 for train/test or 6/1/1 for train/val/test.
