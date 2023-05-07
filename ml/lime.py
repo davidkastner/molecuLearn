@@ -37,7 +37,7 @@ def perturb_data(x, default_val, n):
 
     Args:
         x (1d-np.array): feature vector
-        default (float): default value for perturbation
+        default (1d-np.array): default values for perturbation
         n (int): number of features perturbed
         
     Outputs:
@@ -50,7 +50,7 @@ def perturb_data(x, default_val, n):
     x_bin = np.zeros((m, len(x)))
     for (i, idcs) in enumerate(combs):
         x_pert[i,:] = x
-        x_pert[i,idcs] = default_val
+        x_pert[i,idcs] = default_val[list(idcs)]
         x_bin[i,idcs] = 1 
         
     return x_pert, x_bin
