@@ -57,7 +57,7 @@ def plot_hists(n_max, important_features, class_names, y_preds, **kwargs):
     
     n_features = len(important_features[0])
     fig, axs = plt.subplots(n_max)
-    fig.set_figheight(n_max*3)
+    fig.set_figheight(n_max*2)
     fig.set_figwidth(5)
     for i in range(n_max):
         features = get_nth_mif_by_label(important_features, y_preds, i)
@@ -80,7 +80,7 @@ def plot_hists(n_max, important_features, class_names, y_preds, **kwargs):
         fig.savefig(savepath+"_importance_by_frame_and_label.png")
         
     fig, axs = plt.subplots(n_max)
-    fig.set_figheight(n_max*3)
+    fig.set_figheight(n_max*2)
     fig.set_figwidth(5)
     for i in range(n_max):
         features = get_nth_mif(important_features, i)
@@ -133,6 +133,9 @@ def plot_importance_ranking_by_label(avg_scores_by_label, feature_names, class_n
                     tick_label = [feature_names[r] for r in rankings], label = label)
             offset += ranked_scores 
         ax.legend()
+        fig.tight_layout()
+        if savepath != None:
+            fig.savefig(savepath+"_avg_importance_by_label_stacked.png")
     else:
        local_rankings = {label : np.argsort(-np.array(avg_scores_by_label[label]))[0:n_max] for label in class_names}
        candidates = np.unique(np.hstack([local_rankings[label] for label in class_names]))
@@ -150,15 +153,16 @@ def plot_importance_ranking_by_label(avg_scores_by_label, feature_names, class_n
            ranked_scores = np.array([avg_scores_by_label[label][r] for r in rankings])
            ax.barh(y_range, ranked_scores, height=sub_width, label = label)
            y_range -= sub_width
-           print(y_range)
+
        ax.set_yticks(np.linspace(n_max-1, 0, n_max))
        ax.set_yticklabels([feature_names[r] for r in rankings])
-       ax.legend()          
-        
-        
+       ax.legend()     
        fig.tight_layout()
        if savepath != None:
-           fig.savefig(savepath+"_avg_importance_by_label.png")
+           fig.savefig(savepath+"_avg_importance_by_label_staggered.png")
+        
+        
+        
 
 def evaluate_model(model, inputs):
     if isinstance(model, torch.nn.Module):
