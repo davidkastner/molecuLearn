@@ -12,7 +12,7 @@ import seaborn as sn
 from statistics import mean
 from itertools import cycle
 import shap
-import ml.lime
+import ml.lime_utils
 
 
 def load_data(mimos, data_loc):
@@ -505,3 +505,27 @@ if __name__ == "__main__":
     plot_confusion_matrices(cms, mimos)
     shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos)
     plot_gini_importance(rf_cls, df_dist, df_charge)
+    
+    
+    # lime analysis
+    feature_names = {"charge" : list(df_charge['mc6'].columns), "dist" : list(df_dist['mc6'].columns)}
+    bin_labels = {"charge" : feature_names["charge"], "dist" : None} # bin labels to use for histograms by frames
+    n_max = 10 # number of most important features displayed in plots comparing AVERAGE importance
+    n_max_frame = 5 # number of most important features displayed in plots comparing importance BY FRAME
+    
+    
+    for feature in ["charge", "dist"]:
+        savepath = "rf_lime_"+feature
+        rf = lambda x : lime_utils.evaluate_model(rf_cls[feature], x)
+        data = data_split[feature]['X_test']
+        feature_labels = feature_names[feature]
+        
+        important_features, y_preds, avg_scores, avg_scores_by_label = lime_utils.lime_analysis(data, rf, mimos, feature_labels) 
+    
+        lime_utils.plot_hists(n_max_frame, important_features, mimos, y_preds, bin_labels = bin_labels[feature], savepath=savepath)
+        lime_utils.plot_importance_ranking(avg_scores, feature_labels, n_max, savepath=savepath)
+        lime_utils.plot_importance_ranking_by_label(avg_scores_by_label, feature_labels, mimos, n_max, stacked=False, savepath=savepath)
+        lime_utils.plot_importance_ranking_by_label(avg_scores_by_label, feature_labels, mimos, n_max, stacked=True, savepath=savepath)  
+    
+
+
