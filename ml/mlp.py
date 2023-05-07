@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import confusion_matrix, roc_curve, auc
 from sklearn.preprocessing import StandardScaler, LabelBinarizer
-from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, LogisticRegression
 from sklearn.utils import shuffle
 from statistics import mean
 import matplotlib.pyplot as plt
@@ -11,7 +11,7 @@ from statistics import mean
 import torch
 from itertools import cycle
 import shap
-import ml.lime
+import ml.lime_utils
 
 def gradient_step(model, dataloader, optimizer, device):
 
@@ -239,7 +239,6 @@ def load_data(mimos, data_loc):
 
     return df_charge, df_dist
 
-
 def preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.6, test_frac=0.8):
     """
     Preprocess data for training and testing by splitting it based on the given test and validation fractions.
@@ -453,7 +452,7 @@ def plot_data(df_charge, df_dist, mimos):
     # Apply tight layout and show the plot
     fig.tight_layout()
     plt.savefig("mlp_data.png", bbox_inches="tight", format="png", dpi=300)
-    plt.close()
+    plt.show()
 
 def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
     """
@@ -482,7 +481,8 @@ def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
     # Apply tight layout and show the plot
     fig.tight_layout()
     plt.savefig("mlp_loss_v_epoch.png", bbox_inches="tight", format="png", dpi=300)
-    plt.close()
+    plt.show()
+    
 
 
 def plot_roc_curve(y_true, y_pred_proba, mimos):
@@ -530,7 +530,8 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
         plt.title('Multi-class classification ROC for %s features' % feature, weight='bold')
         plt.legend(loc='best')
         plt.savefig("mlp_roc_" + feature + ".png", bbox_inches="tight", format="png", dpi=300)
-        plt.close()
+        plt.show()
+        
 
 def plot_confusion_matrices(cms, mimos):
     """
@@ -564,7 +565,8 @@ def plot_confusion_matrices(cms, mimos):
     # Apply tight layout and save the plotted confusion matrices
     fig.tight_layout()
     plt.savefig("mlp_cm.png", bbox_inches="tight", format="png", dpi=300)
-    plt.close()
+    plt.show()
+    
 
 def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
     """
@@ -612,7 +614,11 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
         plt.savefig(f"mlp_shap_{mimos[i]}.png", bbox_inches="tight", format="png", dpi=300)
         plt.close()
 
+    fig.tight_layout()
+    plt.savefig("mlp_shap.png", bbox_inches="tight", format="png", dpi=300)
+    plt.show()
 
+   
 def format_plots() -> None:
     """
     General plotting parameters for the Kulik Lab.
@@ -680,6 +686,27 @@ if __name__ == "__main__":
     plot_roc_curve(y_true, y_pred_proba, mimos)
     plot_confusion_matrices(cms, mimos)
     shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos)
+
+    #lime analysis on test data only 
+    feature_names = {"charge" : list(df_charge['mc6'].columns), "dist" : list(df_dist['mc6'].columns)}
+    bin_labels = {"charge" : feature_names["charge"], "dist" : None} # bin labels to use for histograms by frames
+    n_max = 10 # number of most important features displayed in plots comparing AVERAGE importance
+    n_max_frame = 5 # number of most important features displayed in plots comparing importance BY FRAME
+    
+    
+    for feature in ["charge", "dist"]:
+        savepath = "mlp_lime_"+feature
+        mlp = lambda x : lime_utils.evaluate_model(mlp_cls[feature], x)
+        data = data_split[feature]['X_test']
+        feature_labels = feature_names[feature]
+        
+        important_features, y_preds, avg_scores, avg_scores_by_label = lime_utils.lime_analysis(data, mlp, mimos, feature_labels) 
+    
+        lime_utils.plot_hists(n_max_frame, important_features, mimos, y_preds, bin_labels = bin_labels[feature], savepath=savepath)
+        lime_utils.plot_importance_ranking(avg_scores, feature_labels, n_max, savepath=savepath)
+        lime_utils.plot_importance_ranking_by_label(avg_scores_by_label, feature_labels, mimos, n_max, stacked=False, savepath=savepath)
+        lime_utils.plot_importance_ranking_by_label(avg_scores_by_label, feature_labels, mimos, n_max, stacked=True, savepath=savepath)  
+    
 
 
 
