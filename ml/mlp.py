@@ -13,34 +13,34 @@ from itertools import cycle
 import shap
 import ml.lime_utils
 
-def gradient_step(model, dataloader, optimizer, device):
 
-    '''
+def gradient_step(model, dataloader, optimizer, device):
+    """
     A function to train on the entire dataset for one epoch.
-    
-    Args: 
+
+    Args:
         model (torch.nn.Module): the model
         dataloader (torch.utils.data.DataLoader): DataLoader object for the train data
-        optimizer (torch.optim.Optimizer(()): optimizer object to interface gradient calculation and optimization 
+        optimizer (torch.optim.Optimizer(()): optimizer object to interface gradient calculation and optimization
         device (str): The device (usually 'cuda:0' for GPU or 'cpu' for CPU)
-        
-    Returns: 
-        float: loss averaged over all the batches 
-    
-    '''
+
+    Returns:
+        float: loss averaged over all the batches
+
+    """
 
     epoch_loss = []
-    model.train() # Set model to training mode 
+    model.train()  # Set model to training mode
 
-    for batch in dataloader:    
+    for batch in dataloader:
         X, y = batch
         X = X.to(device)
         y = y.to(device)
 
-        # train your model on each batch here 
+        # train your model on each batch here
         y_pred = model(X)
 
-        loss = torch.nn.functional.cross_entropy(y_pred, y) 
+        loss = torch.nn.functional.cross_entropy(y_pred, y)
         epoch_loss.append(loss.item())
 
         # run backpropagation given the loss you defined
@@ -52,29 +52,28 @@ def gradient_step(model, dataloader, optimizer, device):
 
 
 def validate(model, dataloader, device):
-
-    '''
+    """
     A function to validate on the validation dataset for one epoch.
-    
-    Args: 
+
+    Args:
         model (torch.nn.Module): the model
         dataloader (torch.utils.data.DataLoader): DataLoader object for the validation data
         device (str): Your device (usually 'cuda:0' for GPU or 'cpu' for CPU)
-        
-    Returns: 
-        float: loss averaged over all the batches 
-    
-    '''
+
+    Returns:
+        float: loss averaged over all the batches
+
+    """
 
     val_loss = []
-    model.eval() # Set model to evaluation mode 
-    with torch.no_grad():    
+    model.eval()  # Set model to evaluation mode
+    with torch.no_grad():
         for batch in dataloader:
             X, y = batch
             X = X.to(device)
             y = y.to(device)
 
-            # validate your model on each batch here 
+            # validate your model on each batch here
             y_pred = model(X)
 
             loss = torch.nn.functional.cross_entropy(y_pred.squeeze(), y)
@@ -82,11 +81,12 @@ def validate(model, dataloader, device):
 
     return np.array(val_loss).mean()
 
+
 def train(layers, learning_rate, n_epochs, train_dataloader, val_dataloader, device):
-    '''
+    """
     A function to train and validate the model over all epochs.
-    
-    Args: 
+
+    Args:
         layers (dict): Dictionary containing model architecture for distance and charge features
         learning_rate: step size at which model adjusts parameters in response to the computed error gradient
         n_epochs: number of epochs over training and validation sets
@@ -97,16 +97,16 @@ def train(layers, learning_rate, n_epochs, train_dataloader, val_dataloader, dev
                                                               for the validation data of distance and charge
                                                               features
         device (str): Your device (usually 'cuda:0' for GPU or 'cpu' for CPU)
-        
-    Returns: 
+
+    Returns:
         mlp_cls (dict): Dictionary containing trained MLP models for distance and charge features
         train_loss_per_epoch (dict): Dictionary containing training loss as a function of epoch number
                                      for distance and charge features
         val_loss_per_epoch (dict): Dictionary containing validation loss as a function of epoch number
                                    for distance and charge features
 
-    
-    '''
+
+    """
     mlp_cls = {}
     train_loss_per_epoch = {}
     val_loss_per_epoch = {}
@@ -121,14 +121,15 @@ def train(layers, learning_rate, n_epochs, train_dataloader, val_dataloader, dev
         model = MimoMLP(layers[feature]).to(device)
         optimizer = torch.optim.Adam(model.parameters(), learning_rate)
         for epoch in range(n_epochs):
-
             # Train model on training data
-            epoch_loss = gradient_step(model, train_dataloader[feature], optimizer,  device=device)
+            epoch_loss = gradient_step(
+                model, train_dataloader[feature], optimizer, device=device
+            )
 
-            # Validate model on validation data 
-            val_loss = validate(model, val_dataloader[feature], device=device) 
+            # Validate model on validation data
+            val_loss = validate(model, val_dataloader[feature], device=device)
 
-            # Record train and loss performance 
+            # Record train and loss performance
             train_losses.append(epoch_loss)
             val_losses.append(val_loss)
 
@@ -140,11 +141,12 @@ def train(layers, learning_rate, n_epochs, train_dataloader, val_dataloader, dev
 
     return mlp_cls, train_loss_per_epoch, val_loss_per_epoch
 
+
 def evaluate_model(mlp_cls, test_dataloader, device, mimos):
-    '''
+    """
     A function to evaluate the model on test data.
-    
-    Args: 
+
+    Args:
         mlp_cls (dict of torch.nn.Module): Dictionary containing trained MLP classifiers for distance and
                                            charge features
         test_dataloader (dict of torch.utils.data.DataLoader): Dictionary containing DataLoader object
@@ -152,15 +154,15 @@ def evaluate_model(mlp_cls, test_dataloader, device, mimos):
                                                                features
         device (str): Your device (usually 'cuda:0' for GPU or 'cpu' for CPU)
         mimos (list): List of MIMO types, e.g. ['mc6', mc6s', 'mc6sa']
-        
-    Returns: 
+
+    Returns:
         test loss (dict): Dictionary containing average test loss for distance and charge features
         y_true (dict): Dictionary containing test data ground truth labels for distance and charge features
         y_pred_proba (dict): Dictionary containing softmax probabilities of the predicted labels for distance
                              and charge features
         y_pred (dict): Dictionary containing prediction labels for distance and charge features
         cms (dict): Dictionary containing confusion matrices for distance and charge features.
-    '''
+    """
     features = ["dist", "charge"]
     y_pred_proba = {}
     y_pred = {}
@@ -169,23 +171,34 @@ def evaluate_model(mlp_cls, test_dataloader, device, mimos):
     cms = {}
 
     for feature in features:
-        mlp_cls[feature].eval() 
-        y_true_feature_specific = np.empty((0,3))
-        y_pred_proba_feature_specific = np.empty((0,3))
+        mlp_cls[feature].eval()
+        y_true_feature_specific = np.empty((0, 3))
+        y_pred_proba_feature_specific = np.empty((0, 3))
         y_pred_feature_specific = np.empty(0)
         losses = []
-        with torch.no_grad():    
+        with torch.no_grad():
             for batch in test_dataloader[feature]:
                 X, y = batch
                 X = X.to(device)
                 y = y.to(device)
                 logits = mlp_cls[feature](X)
-                losses.append(torch.nn.functional.cross_entropy(logits, y)) 
+                losses.append(torch.nn.functional.cross_entropy(logits, y))
 
-                y_true_feature_specific = np.vstack((y_true_feature_specific, y.detach().cpu().numpy()))
-                y_proba = torch.nn.functional.softmax(logits, dim=1).detach().cpu().numpy()
-                y_pred_proba_feature_specific = np.vstack((y_pred_proba_feature_specific, y_proba))
-                y_pred_feature_specific = np.hstack((y_pred_feature_specific, logits.argmax(dim=1).detach().cpu().numpy()))
+                y_true_feature_specific = np.vstack(
+                    (y_true_feature_specific, y.detach().cpu().numpy())
+                )
+                y_proba = (
+                    torch.nn.functional.softmax(logits, dim=1).detach().cpu().numpy()
+                )
+                y_pred_proba_feature_specific = np.vstack(
+                    (y_pred_proba_feature_specific, y_proba)
+                )
+                y_pred_feature_specific = np.hstack(
+                    (
+                        y_pred_feature_specific,
+                        logits.argmax(dim=1).detach().cpu().numpy(),
+                    )
+                )
 
         y_pred_proba[feature] = y_pred_proba_feature_specific
         y_pred[feature] = y_pred_feature_specific
@@ -208,6 +221,7 @@ class MimoMLP(torch.nn.Module):
 
     def forward(self, x):
         return self.model(x)
+
 
 def load_data(mimos, data_loc):
     """
@@ -233,13 +247,16 @@ def load_data(mimos, data_loc):
     for mimo in mimos:
         # Load charge and distance data from CSV files and store them in dictionaries
         df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charges_esp.csv")
-        df_charge[mimo] = df_charge[mimo].drop(columns=['replicate'])
+        df_charge[mimo] = df_charge[mimo].drop(columns=["replicate"])
         df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distance_v2.csv")
-        df_dist[mimo] = df_dist[mimo].drop(columns=['replicate'])
+        df_dist[mimo] = df_dist[mimo].drop(columns=["replicate"])
 
     return df_charge, df_dist
 
-def preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.6, test_frac=0.8):
+
+def preprocess_data(
+    df_charge, df_dist, mimos, data_split_type, val_frac=0.6, test_frac=0.8
+):
     """
     Preprocess data for training and testing by splitting it based on the given test and validation fractions.
     Parameters
@@ -251,12 +268,12 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.6, te
     mimos : list of str
         List of mimo names.
     data_split_type : int
-        Integer value of 1 or 2 to pick the type of data split. 
+        Integer value of 1 or 2 to pick the type of data split.
         1 corresponds to splitting each trajectory into train/val/test then stitching together the
         train/val/test sets from each trajectory together to get an overall train/val/test set. The
         splitting within each trajectory is based on the provided fractional parameters.
         2 corresponds to splitting the entire dataset such that the first set of trajectories belong to
-        the train set, the second set of trajectories belong to the val set, and the third set of 
+        the train set, the second set of trajectories belong to the val set, and the third set of
         trajectories belong to the test set. The splitting of the trajectories is based on the provided
         fractional parameters.
     val_frac : float, optional, default: 0.6
@@ -268,20 +285,25 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.6, te
     data_split : dict
         Dictionary containing the training and testing data for distance and charge features.
     df_charge : dict
-        Revised dictionary with mimo names as keys and charge data as values in pandas DataFrames. 
+        Revised dictionary with mimo names as keys and charge data as values in pandas DataFrames.
     df_dist : dict
-        Revised dictionary with mimo names as keys and distance data as values in pandas DataFrames. 
+        Revised dictionary with mimo names as keys and distance data as values in pandas DataFrames.
     """
 
     # From df_dist, drop any distances between amino acids if either one of them has the mutants Glu3, Aib20, or Aib23.
     for mimo in mimos:
         if mimo == "mc6":
-            df_dist[mimo] = df_dist[mimo].loc[:, ~df_dist[mimo].columns.str.contains('GLU3|GLN20|SER23')]
+            df_dist[mimo] = df_dist[mimo].loc[
+                :, ~df_dist[mimo].columns.str.contains("GLU3|GLN20|SER23")
+            ]
         elif mimo == "mc6s":
-            df_dist[mimo] = df_dist[mimo].loc[:, ~df_dist[mimo].columns.str.contains('LEU3|GLN20|SER23')]
+            df_dist[mimo] = df_dist[mimo].loc[
+                :, ~df_dist[mimo].columns.str.contains("LEU3|GLN20|SER23")
+            ]
         elif mimo == "mc6sa":
-            df_dist[mimo] = df_dist[mimo].loc[:, ~df_dist[mimo].columns.str.contains('LEU3|AIB20|AIB23')]
-
+            df_dist[mimo] = df_dist[mimo].loc[
+                :, ~df_dist[mimo].columns.str.contains("LEU3|AIB20|AIB23")
+            ]
 
     class_assignment = {"mc6": 0, "mc6s": 1, "mc6sa": 2}
     features = ["dist", "charge"]
@@ -307,33 +329,33 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.6, te
     data_split = {}
     if data_split_type == 1:
         X_train = {
-                  "dist": {mimo: np.empty((0, df_dist[mimo].shape[1])) for mimo in mimos},
-                  "charge": {mimo: np.empty((0, df_charge[mimo].shape[1])) for mimo in mimos},
+            "dist": {mimo: np.empty((0, df_dist[mimo].shape[1])) for mimo in mimos},
+            "charge": {mimo: np.empty((0, df_charge[mimo].shape[1])) for mimo in mimos},
         }
 
         X_val = {
-                "dist": {mimo: np.empty((0, df_dist[mimo].shape[1])) for mimo in mimos},
-                "charge": {mimo: np.empty((0, df_charge[mimo].shape[1])) for mimo in mimos},
+            "dist": {mimo: np.empty((0, df_dist[mimo].shape[1])) for mimo in mimos},
+            "charge": {mimo: np.empty((0, df_charge[mimo].shape[1])) for mimo in mimos},
         }
 
         X_test = {
-                 "dist": {mimo: np.empty((0, df_dist[mimo].shape[1])) for mimo in mimos},
-                 "charge": {mimo: np.empty((0, df_charge[mimo].shape[1])) for mimo in mimos},
+            "dist": {mimo: np.empty((0, df_dist[mimo].shape[1])) for mimo in mimos},
+            "charge": {mimo: np.empty((0, df_charge[mimo].shape[1])) for mimo in mimos},
         }
 
         y_train = {
-                  "dist": {mimo: np.empty((0, len(mimos))) for mimo in mimos},
-                  "charge": {mimo: np.empty((0, len(mimos))) for mimo in mimos},
+            "dist": {mimo: np.empty((0, len(mimos))) for mimo in mimos},
+            "charge": {mimo: np.empty((0, len(mimos))) for mimo in mimos},
         }
 
         y_val = {
-                "dist": {mimo: np.empty((0, len(mimos))) for mimo in mimos},
-                "charge": {mimo: np.empty((0, len(mimos))) for mimo in mimos},
+            "dist": {mimo: np.empty((0, len(mimos))) for mimo in mimos},
+            "charge": {mimo: np.empty((0, len(mimos))) for mimo in mimos},
         }
 
         y_test = {
-                 "dist": {mimo: np.empty((0, len(mimos))) for mimo in mimos},
-                 "charge": {mimo: np.empty((0, len(mimos))) for mimo in mimos},
+            "dist": {mimo: np.empty((0, len(mimos))) for mimo in mimos},
+            "charge": {mimo: np.empty((0, len(mimos))) for mimo in mimos},
         }
         # Split data into training, validation and testing sets based on the val_frac and test_frac parameters and normalize data.
         for feature in features:
@@ -343,12 +365,56 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.6, te
             count = 0
             while count < int(X[feature]["mc6"].shape[0]):
                 for mimo in mimos:
-                    X_train[feature][mimo] = np.vstack((X_train[feature][mimo], X[feature][mimo][count:count+val_cutoff, :]))
-                    X_val[feature][mimo] = np.vstack((X_val[feature][mimo], X[feature][mimo][count+val_cutoff:count+test_cutoff, :]))
-                    X_test[feature][mimo] = np.vstack((X_test[feature][mimo], X[feature][mimo][count+test_cutoff:count+int(X[feature][mimo].shape[0]/8), :]))
-                    y_train[feature][mimo] = np.vstack((y_train[feature][mimo], y[feature][mimo][count:count+val_cutoff, :]))
-                    y_val[feature][mimo] = np.vstack((y_val[feature][mimo], y[feature][mimo][count+val_cutoff:count+test_cutoff, :]))
-                    y_test[feature][mimo] = np.vstack((y_test[feature][mimo], y[feature][mimo][count+test_cutoff:count+int(y[feature][mimo].shape[0]/8), :]))
+                    X_train[feature][mimo] = np.vstack(
+                        (
+                            X_train[feature][mimo],
+                            X[feature][mimo][count : count + val_cutoff, :],
+                        )
+                    )
+                    X_val[feature][mimo] = np.vstack(
+                        (
+                            X_val[feature][mimo],
+                            X[feature][mimo][
+                                count + val_cutoff : count + test_cutoff, :
+                            ],
+                        )
+                    )
+                    X_test[feature][mimo] = np.vstack(
+                        (
+                            X_test[feature][mimo],
+                            X[feature][mimo][
+                                count
+                                + test_cutoff : count
+                                + int(X[feature][mimo].shape[0] / 8),
+                                :,
+                            ],
+                        )
+                    )
+                    y_train[feature][mimo] = np.vstack(
+                        (
+                            y_train[feature][mimo],
+                            y[feature][mimo][count : count + val_cutoff, :],
+                        )
+                    )
+                    y_val[feature][mimo] = np.vstack(
+                        (
+                            y_val[feature][mimo],
+                            y[feature][mimo][
+                                count + val_cutoff : count + test_cutoff, :
+                            ],
+                        )
+                    )
+                    y_test[feature][mimo] = np.vstack(
+                        (
+                            y_test[feature][mimo],
+                            y[feature][mimo][
+                                count
+                                + test_cutoff : count
+                                + int(y[feature][mimo].shape[0] / 8),
+                                :,
+                            ],
+                        )
+                    )
                 count += int(X[feature]["mc6"].shape[0] / 8)
 
             data_split[feature] = {
@@ -362,11 +428,16 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.6, te
 
             # Normalize data
             x_scaler = StandardScaler()
-            x_scaler.fit(data_split[feature]['X_train'])
-            data_split[feature]['X_train'] = x_scaler.transform(data_split[feature]['X_train'])
-            data_split[feature]['X_val'] = x_scaler.transform(data_split[feature]['X_val'])
-            data_split[feature]['X_test'] = x_scaler.transform(data_split[feature]['X_test'])
-
+            x_scaler.fit(data_split[feature]["X_train"])
+            data_split[feature]["X_train"] = x_scaler.transform(
+                data_split[feature]["X_train"]
+            )
+            data_split[feature]["X_val"] = x_scaler.transform(
+                data_split[feature]["X_val"]
+            )
+            data_split[feature]["X_test"] = x_scaler.transform(
+                data_split[feature]["X_test"]
+            )
 
     elif data_split_type == 2:
         for feature in features:
@@ -374,46 +445,91 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.6, te
             test_cutoff = int(test_frac * X[feature]["mc6"].shape[0])
 
             data_split[feature] = {
-                "X_train": np.vstack([X[feature][mimo][0:val_cutoff, :] for mimo in mimos]),
-                "X_val": np.vstack([X[feature][mimo][val_cutoff:test_cutoff, :] for mimo in mimos]),
-                "X_test": np.vstack([X[feature][mimo][test_cutoff:, :] for mimo in mimos]),
-                "y_train": np.vstack([y[feature][mimo][0:val_cutoff, :] for mimo in mimos]),
-                "y_val": np.vstack([y[feature][mimo][val_cutoff:test_cutoff, :] for mimo in mimos]),
-                "y_test": np.vstack([y[feature][mimo][test_cutoff:, :] for mimo in mimos]),
+                "X_train": np.vstack(
+                    [X[feature][mimo][0:val_cutoff, :] for mimo in mimos]
+                ),
+                "X_val": np.vstack(
+                    [X[feature][mimo][val_cutoff:test_cutoff, :] for mimo in mimos]
+                ),
+                "X_test": np.vstack(
+                    [X[feature][mimo][test_cutoff:, :] for mimo in mimos]
+                ),
+                "y_train": np.vstack(
+                    [y[feature][mimo][0:val_cutoff, :] for mimo in mimos]
+                ),
+                "y_val": np.vstack(
+                    [y[feature][mimo][val_cutoff:test_cutoff, :] for mimo in mimos]
+                ),
+                "y_test": np.vstack(
+                    [y[feature][mimo][test_cutoff:, :] for mimo in mimos]
+                ),
             }
 
             # Normalize data
             x_scaler = StandardScaler()
-            x_scaler.fit(data_split[feature]['X_train'])
-            data_split[feature]['X_train'] = x_scaler.transform(data_split[feature]['X_train'])
-            data_split[feature]['X_val'] = x_scaler.transform(data_split[feature]['X_val'])
-            data_split[feature]['X_test'] = x_scaler.transform(data_split[feature]['X_test'])
+            x_scaler.fit(data_split[feature]["X_train"])
+            data_split[feature]["X_train"] = x_scaler.transform(
+                data_split[feature]["X_train"]
+            )
+            data_split[feature]["X_val"] = x_scaler.transform(
+                data_split[feature]["X_val"]
+            )
+            data_split[feature]["X_test"] = x_scaler.transform(
+                data_split[feature]["X_test"]
+            )
 
     return data_split, df_dist, df_charge
 
+
 def build_dataloaders(data_split):
-    '''
+    """
     A function to build the DataLoaders from the data split
-    
-    Args: 
+
+    Args:
         data split (dict): Dictionary containing the training and testing data for distance and
                            charge features.
-        
-    Returns: 
+
+    Returns:
         train_loader (dict): Dictionary containing DataLoader object for the training data for distance
                              and charge features
         val_loader (dict): Dictionary containing DataLoader object for the validation data for distance
                            and charge features
         test_loader (dict): Dictionary containing DataLoader object for the test data for distance
                             and charge features
-    '''
-    
-    train_sets = {feature : MDDataset(data_split[feature]['X_train'], data_split[feature]['y_train']) for feature in data_split.keys()}
-    val_sets = {feature : MDDataset(data_split[feature]['X_val'], data_split[feature]['y_val']) for feature in data_split.keys()}
-    test_sets = {feature : MDDataset(data_split[feature]['X_test'], data_split[feature]['y_test']) for feature in data_split.keys()}
-    train_loader = {feature : torch.utils.data.DataLoader(train_sets[feature], batch_size=256, shuffle=True) for feature in data_split.keys()}
-    val_loader = {feature : torch.utils.data.DataLoader(val_sets[feature], batch_size=256, shuffle=True) for feature in data_split.keys()}
-    test_loader = {feature : torch.utils.data.DataLoader(test_sets[feature], batch_size=256, shuffle=True) for feature in data_split.keys()}
+    """
+
+    train_sets = {
+        feature: MDDataset(
+            data_split[feature]["X_train"], data_split[feature]["y_train"]
+        )
+        for feature in data_split.keys()
+    }
+    val_sets = {
+        feature: MDDataset(data_split[feature]["X_val"], data_split[feature]["y_val"])
+        for feature in data_split.keys()
+    }
+    test_sets = {
+        feature: MDDataset(data_split[feature]["X_test"], data_split[feature]["y_test"])
+        for feature in data_split.keys()
+    }
+    train_loader = {
+        feature: torch.utils.data.DataLoader(
+            train_sets[feature], batch_size=256, shuffle=True
+        )
+        for feature in data_split.keys()
+    }
+    val_loader = {
+        feature: torch.utils.data.DataLoader(
+            val_sets[feature], batch_size=256, shuffle=True
+        )
+        for feature in data_split.keys()
+    }
+    test_loader = {
+        feature: torch.utils.data.DataLoader(
+            test_sets[feature], batch_size=256, shuffle=True
+        )
+        for feature in data_split.keys()
+    }
 
     return train_loader, val_loader, test_loader
 
@@ -454,6 +570,7 @@ def plot_data(df_charge, df_dist, mimos):
     plt.savefig("mlp_data.png", bbox_inches="tight", format="png", dpi=300)
     plt.show()
 
+
 def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
     """
     Plot the train and validation losses as a function of epoch number for the charge and distance features.
@@ -465,24 +582,23 @@ def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
         Dictionary of np.arrays containing validation losses per epoch for charge and distance features.
     """
 
-    features = ['dist', 'charge']
+    features = ["dist", "charge"]
     # Create a 1x2 subplot
     fig, ax = plt.subplots(1, 2, figsize=(12, 4))
 
     # Loop through each feature and plot the training and validation losses on the same axes
     for i, feature in enumerate(features):
-        ax[i].plot(train_loss_per_epoch[feature], color='red', label='training loss')
-        ax[i].plot(val_loss_per_epoch[feature], color='blue', label='validation loss')
-        ax[i].set_xlabel('epoch', weight='bold')
-        ax[i].set_ylabel('loss', weight='bold')
-        ax[i].set_title(f"{feature}", weight='bold')
-        ax[i].legend(loc='best')
+        ax[i].plot(train_loss_per_epoch[feature], color="red", label="training loss")
+        ax[i].plot(val_loss_per_epoch[feature], color="blue", label="validation loss")
+        ax[i].set_xlabel("epoch", weight="bold")
+        ax[i].set_ylabel("loss", weight="bold")
+        ax[i].set_title(f"{feature}", weight="bold")
+        ax[i].legend(loc="best")
 
     # Apply tight layout and show the plot
     fig.tight_layout()
     plt.savefig("mlp_loss_v_epoch.png", bbox_inches="tight", format="png", dpi=300)
     plt.show()
-    
 
 
 def plot_roc_curve(y_true, y_pred_proba, mimos):
@@ -491,16 +607,16 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
     Parameters
     ----------
     y_true : dict
-        Dictionary of np.arrays containing ground truth labels of the test data for charge and 
+        Dictionary of np.arrays containing ground truth labels of the test data for charge and
         distance features.
     y_pred_proba : dict
-        Dictionary of np.arrays containing softmaxed probability predictions of the test data for charge and 
+        Dictionary of np.arrays containing softmaxed probability predictions of the test data for charge and
         distance features.
     mimos : list
         List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
     """
 
-    features = ['dist', 'charge']
+    features = ["dist", "charge"]
 
     lb = {}
     for feature in features:
@@ -518,20 +634,29 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
             roc_auc[j] = auc(fpr[j], tpr[j])
 
         plt.figure()
-        colors = cycle(['red', 'blue', 'green'])
+        colors = cycle(["red", "blue", "green"])
         for j, color in zip(range(len(mimos)), colors):
-            plt.plot(fpr[j], tpr[j], color=color, lw=2,
-                     label='ROC curve (area = %0.2f) for class %s' % (roc_auc[j], mimos[j]))
-        plt.plot([0, 1], [0, 1], 'k--', lw=2)
+            plt.plot(
+                fpr[j],
+                tpr[j],
+                color=color,
+                lw=2,
+                label="ROC curve (area = %0.2f) for class %s" % (roc_auc[j], mimos[j]),
+            )
+        plt.plot([0, 1], [0, 1], "k--", lw=2)
         plt.xlim([-0.05, 1.0])
         plt.ylim([0.0, 1.05])
-        plt.xlabel('false positive rate', weight='bold')
-        plt.ylabel('true positive rate', weight='bold')
-        plt.title('Multi-class classification ROC for %s features' % feature, weight='bold')
-        plt.legend(loc='best')
-        plt.savefig("mlp_roc_" + feature + ".png", bbox_inches="tight", format="png", dpi=300)
+        plt.xlabel("false positive rate", weight="bold")
+        plt.ylabel("true positive rate", weight="bold")
+        plt.title(
+            "Multi-class classification ROC for %s features" % feature, weight="bold"
+        )
+        plt.legend(loc="best")
+        plt.savefig(
+            "mlp_roc_" + feature + ".png", bbox_inches="tight", format="png", dpi=300
+        )
         plt.show()
-        
+
 
 def plot_confusion_matrices(cms, mimos):
     """
@@ -566,7 +691,7 @@ def plot_confusion_matrices(cms, mimos):
     fig.tight_layout()
     plt.savefig("mlp_cm.png", bbox_inches="tight", format="png", dpi=300)
     plt.show()
-    
+
 
 def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
     """
@@ -577,7 +702,7 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
     mlp_cls : dict
         Dictionary containing trained MLP classifiers for distance and charge features
     test_loader : dict
-        Dictionary containing DataLoader object for the test data for distance 
+        Dictionary containing DataLoader object for the test data for distance
         and charge features
     df_dist : dict
         Dictionary of DataFrames containing distance data for each MIMO type.
@@ -587,7 +712,7 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
         List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
     """
 
-    features = ['dist', 'charge']
+    features = ["dist", "charge"]
 
     df = {"dist": df_dist, "charge": df_charge}
 
@@ -609,16 +734,23 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
         fig, axs = plt.subplots(1, 2, figsize=(20, 5))
         for j, ax in enumerate(axs):
             plt.sca(ax)
-            shap.summary_plot(shap_values[features[j]][i], test[features[j]], feature_names=df[features[j]][mimos[i]].columns.to_list(), show=False)
+            shap.summary_plot(
+                shap_values[features[j]][i],
+                test[features[j]],
+                feature_names=df[features[j]][mimos[i]].columns.to_list(),
+                show=False,
+            )
             axs[j].set_title(f"{features[j]}, {mimos[i]}", fontweight="bold")
-        plt.savefig(f"mlp_shap_{mimos[i]}.png", bbox_inches="tight", format="png", dpi=300)
+        plt.savefig(
+            f"mlp_shap_{mimos[i]}.png", bbox_inches="tight", format="png", dpi=300
+        )
         plt.close()
 
     fig.tight_layout()
     plt.savefig("mlp_shap.png", bbox_inches="tight", format="png", dpi=300)
     plt.show()
 
-   
+
 def format_plots() -> None:
     """
     General plotting parameters for the Kulik Lab.
@@ -638,17 +770,19 @@ def format_plots() -> None:
     plt.rcParams["ytick.right"] = True
     plt.rcParams["svg.fonttype"] = "none"
 
+
 class MDDataset(torch.utils.data.Dataset):
     def __init__(self, X, y):
         self.X = torch.Tensor(np.array(X))  # store X as a pytorch Tensor
         self.y = torch.Tensor(np.array(y))  # store y as a pytorch Tensor
-        self.len=len(self.X)                # number of samples in the data 
+        self.len = len(self.X)  # number of samples in the data
 
     def __getitem__(self, index):
-        return self.X[index], self.y[index] 
+        return self.X[index], self.y[index]
 
     def __len__(self):
         return self.len
+
 
 if __name__ == "__main__":
     # Get datasets
@@ -665,51 +799,92 @@ if __name__ == "__main__":
     train_loader, val_loader, test_loader = build_dataloaders(data_split)
 
     # Get input sizes for each dataset and build model architectures
-    n_dist = data_split['dist']['X_train'].shape[1]
-    n_charge = data_split['charge']['X_train'].shape[1]
-    layers = {'dist': (torch.nn.Linear(n_dist, 128), torch.nn.ReLU(), 
-                       torch.nn.Linear(128, 128), torch.nn.ReLU(), 
-                       torch.nn.Linear(128, 128), torch.nn.ReLU(), 
-                       torch.nn.Linear(128, 3)),
-              'charge': (torch.nn.Linear(n_charge, 128), torch.nn.ReLU(), 
-                         torch.nn.Linear(128, 128), torch.nn.ReLU(), 
-                         torch.nn.Linear(128, 128), torch.nn.ReLU(), 
-                         torch.nn.Linear(128, 3))
-             }
+    n_dist = data_split["dist"]["X_train"].shape[1]
+    n_charge = data_split["charge"]["X_train"].shape[1]
+    layers = {
+        "dist": (
+            torch.nn.Linear(n_dist, 128),
+            torch.nn.ReLU(),
+            torch.nn.Linear(128, 128),
+            torch.nn.ReLU(),
+            torch.nn.Linear(128, 128),
+            torch.nn.ReLU(),
+            torch.nn.Linear(128, 3),
+        ),
+        "charge": (
+            torch.nn.Linear(n_charge, 128),
+            torch.nn.ReLU(),
+            torch.nn.Linear(128, 128),
+            torch.nn.ReLU(),
+            torch.nn.Linear(128, 128),
+            torch.nn.ReLU(),
+            torch.nn.Linear(128, 3),
+        ),
+    }
 
     # Train model on training and validation data
-    mlp_cls, train_loss_per_epoch, val_loss_per_epoch =train(layers, 1e-3, 100, train_loader, val_loader, 'cpu')
+    mlp_cls, train_loss_per_epoch, val_loss_per_epoch = train(
+        layers, 1e-3, 100, train_loader, val_loader, "cpu"
+    )
     plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch)
     # Evaluate model on test data
-    test_loss, y_true, y_pred_proba, y_pred, cms = evaluate_model(mlp_cls, test_loader, 'cpu', mimos)
+    test_loss, y_true, y_pred_proba, y_pred, cms = evaluate_model(
+        mlp_cls, test_loader, "cpu", mimos
+    )
     # Plot ROC-AUC curves, confusion matrices and SHAP dot plots
     plot_roc_curve(y_true, y_pred_proba, mimos)
     plot_confusion_matrices(cms, mimos)
     shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos)
 
-    #lime analysis on test data only 
-    feature_names = {"charge" : list(df_charge['mc6'].columns), "dist" : list(df_dist['mc6'].columns)}
-    bin_labels = {"charge" : feature_names["charge"], "dist" : None} # bin labels to use for histograms by frames
-    n_max = 10 # number of most important features displayed in plots comparing AVERAGE importance
-    n_max_frame = 5 # number of most important features displayed in plots comparing importance BY FRAME
-    
-    
+    # lime analysis on test data only
+    feature_names = {
+        "charge": list(df_charge["mc6"].columns),
+        "dist": list(df_dist["mc6"].columns),
+    }
+    bin_labels = {
+        "charge": feature_names["charge"],
+        "dist": None,
+    }  # bin labels to use for histograms by frames
+    n_max = 10  # number of most important features displayed in plots comparing AVERAGE importance
+    n_max_frame = 5  # number of most important features displayed in plots comparing importance BY FRAME
+
     for feature in ["charge", "dist"]:
-        savepath = "mlp_lime_"+feature
-        mlp = lambda x : lime_utils.evaluate_model(mlp_cls[feature], x)
-        data = data_split[feature]['X_test']
+        savepath = "mlp_lime_" + feature
+        mlp = lambda x: lime_utils.evaluate_model(mlp_cls[feature], x)
+        data = data_split[feature]["X_test"]
         feature_labels = feature_names[feature]
-        
-        important_features, y_preds, avg_scores, avg_scores_by_label = lime_utils.lime_analysis(data, mlp, mimos, feature_labels) 
-    
-        lime_utils.plot_hists(n_max_frame, important_features, mimos, y_preds, bin_labels = bin_labels[feature], savepath=savepath)
-        lime_utils.plot_importance_ranking(avg_scores, feature_labels, n_max, savepath=savepath)
-        lime_utils.plot_importance_ranking_by_label(avg_scores_by_label, feature_labels, mimos, n_max, stacked=False, savepath=savepath)
-        lime_utils.plot_importance_ranking_by_label(avg_scores_by_label, feature_labels, mimos, n_max, stacked=True, savepath=savepath)  
-    
 
+        (
+            important_features,
+            y_preds,
+            avg_scores,
+            avg_scores_by_label,
+        ) = lime_utils.lime_analysis(data, mlp, mimos, feature_labels)
 
-
-
-
-
+        lime_utils.plot_hists(
+            n_max_frame,
+            important_features,
+            mimos,
+            y_preds,
+            bin_labels=bin_labels[feature],
+            savepath=savepath,
+        )
+        lime_utils.plot_importance_ranking(
+            avg_scores, feature_labels, n_max, savepath=savepath
+        )
+        lime_utils.plot_importance_ranking_by_label(
+            avg_scores_by_label,
+            feature_labels,
+            mimos,
+            n_max,
+            stacked=False,
+            savepath=savepath,
+        )
+        lime_utils.plot_importance_ranking_by_label(
+            avg_scores_by_label,
+            feature_labels,
+            mimos,
+            n_max,
+            stacked=True,
+            savepath=savepath,
+        )
