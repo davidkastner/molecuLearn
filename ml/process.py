@@ -12,6 +12,7 @@ from biopandas.pdb import PandasPdb
 from MDAnalysis.analysis import distances
 from itertools import combinations
 
+
 def combine_sp_xyz():
     """
     Combines single point xyz's for all replicates.
@@ -59,7 +60,9 @@ def combine_sp_xyz():
                         xyz_count += 1
                         frame_count += 1
 
-                replicate_info.append((int(replicate[:-1]), frame_count))  # Append replicate information
+                replicate_info.append(
+                    (int(replicate[:-1]), frame_count)
+                )  # Append replicate information
 
             # Go back and loop through all the other replicates
             os.chdir(primary)
@@ -75,7 +78,8 @@ def combine_sp_xyz():
         """
     )
 
-    return replicate_info 
+    return replicate_info
+
 
 def combine_qm_replicates() -> None:
     """
@@ -124,7 +128,9 @@ def combine_qm_replicates() -> None:
                     elif "nan" in line:
                         print(f"      > Found nan values in {secondary_dir}.")
                     else:
-                        new_charge_file.writelines(line.strip() + "\t" + replicate_number + "\n")
+                        new_charge_file.writelines(
+                            line.strip() + "\t" + replicate_number + "\n"
+                        )
 
             os.chdir(primary_dir)
 
@@ -138,6 +144,7 @@ def combine_qm_replicates() -> None:
         \t--------------------------------------------------------------------\n
         """
     )
+
 
 def combine_replicates(
     all_charges: str = "all_charges.xls", all_coors: str = "all_coors.xyz"
@@ -216,6 +223,7 @@ def combine_replicates(
         \t--------------------------------------------------------------------\n
         """
     )
+
 
 def combine_qm_charges(first_job: int, last_job: int, step: int) -> None:
     """
@@ -323,6 +331,7 @@ def combine_qm_charges(first_job: int, last_job: int, step: int) -> None:
         """
     )
 
+
 def xyz2pdb_traj() -> None:
     """
     Converts an xyz trajectory file into a pdb trajectory file.
@@ -363,9 +372,13 @@ def xyz2pdb_traj() -> None:
                 quit()
             pdb_line = pdb_file[atom - 2].strip()  # PDB is two behind the xyz
             if len(element_name) > 1:
-                new_file.write(f"{pdb_line[0:30]}{x[0:6]}  {y[0:6]}  {z[0:6]}  {pdb_line[54:80]}          {element_name}\n")
+                new_file.write(
+                    f"{pdb_line[0:30]}{x[0:6]}  {y[0:6]}  {z[0:6]}  {pdb_line[54:80]}          {element_name}\n"
+                )
             else:
-                new_file.write(f"{pdb_line[0:30]}{x[0:6]}  {y[0:6]}  {z[0:6]}  {pdb_line[54:80]}           {element_name}\n")
+                new_file.write(
+                    f"{pdb_line[0:30]}{x[0:6]}  {y[0:6]}  {z[0:6]}  {pdb_line[54:80]}           {element_name}\n"
+                )
         else:
             atom += 1
         if atom > max_atom:
@@ -387,7 +400,7 @@ def xyz2pdb_traj() -> None:
 def pairwise_distances_csv(pdb_traj_path, output_file, replicate_info):
     """
     Calculate pairwise distances between residue centers of mass and save the result to a CSV file.
-    
+
     Parameters
     ----------
     pdb_traj_path : str
@@ -401,24 +414,30 @@ def pairwise_distances_csv(pdb_traj_path, output_file, replicate_info):
     # Read the trajectory file and split it into models
     with open(pdb_traj_path) as f:
         models = f.read().split("END")
-    
+
     # Create a list of StringIO objects for each model
     frame_files = [io.StringIO(model) for model in models if model.strip()]
     universes = [mda.Universe(frame_file, format="pdb") for frame_file in frame_files]
 
     # Generate column names based on residue pairs
-    residue_names = [residue.resname + str(residue.resid) for residue in universes[0].residues]
+    residue_names = [
+        residue.resname + str(residue.resid) for residue in universes[0].residues
+    ]
     residue_pairs = list(combinations(residue_names, 2))
     column_names = [f"{pair[0]}-{pair[1]}" for pair in residue_pairs]
 
     pairwise_distances = []
     for universe in universes:
         # Calculate the center of mass for each residue
-        residue_com = np.array([residue.atoms.center_of_mass() for residue in universe.residues])
-        
+        residue_com = np.array(
+            [residue.atoms.center_of_mass() for residue in universe.residues]
+        )
+
         # Calculate the pairwise distance matrix
         distance_matrix = distances.distance_array(residue_com, residue_com)
-        pairwise_distances.append(distance_matrix[np.triu_indices(len(residue_com), k=1)])
+        pairwise_distances.append(
+            distance_matrix[np.triu_indices(len(residue_com), k=1)]
+        )
 
     # Create a DataFrame with pairwise distances and column names
     pairwise_distances_df = pd.DataFrame(pairwise_distances, columns=column_names)
@@ -427,10 +446,12 @@ def pairwise_distances_csv(pdb_traj_path, output_file, replicate_info):
     replicate_list = []
     for replicate, count in replicate_info:
         replicate_list.extend([replicate] * count)
-    replicate_col = pd.DataFrame(replicate_list, columns=['replicate'])
+    replicate_col = pd.DataFrame(replicate_list, columns=["replicate"])
 
     # Ensure the replicate_col has the same number of rows as the other dataframe.
-    assert len(pairwise_distances_df) == len(replicate_col), "Dataframes have different number of rows."
+    assert len(pairwise_distances_df) == len(
+        replicate_col
+    ), "Dataframes have different number of rows."
 
     # Concatenate the dataframes along the columns axis
     pairwise_distances_df = pd.concat([pairwise_distances_df, replicate_col], axis=1)
@@ -481,7 +502,9 @@ def pairwise_charge_features(structure):
     replicate = df.pop("replicate")
 
     # Prompt the user for the desired operation
-    operation = input("Choose an operation for pairwise charge features (add/multiply): ")
+    operation = input(
+        "Choose an operation for pairwise charge features (add/multiply): "
+    )
 
     # Generate pairwise charge features
     feature_columns = df.columns
@@ -493,9 +516,13 @@ def pairwise_charge_features(structure):
 
             # Perform the specified operation
             if operation == "add":
-                new_features.append(pd.DataFrame({f"{col1}-{col2}": df[col1] + df[col2]}))
+                new_features.append(
+                    pd.DataFrame({f"{col1}-{col2}": df[col1] + df[col2]})
+                )
             elif operation == "multiply":
-                new_features.append(pd.DataFrame({f"{col1}-{col2}": df[col1] * df[col2]}))
+                new_features.append(
+                    pd.DataFrame({f"{col1}-{col2}": df[col1] * df[col2]})
+                )
             else:
                 raise ValueError("Invalid operation. Choose 'add' or 'multiply'.")
 
@@ -570,22 +597,27 @@ def summed_residue_charge(charge_data: pd.DataFrame, template: str):
 
     """
     # Extract the "replicate" column and remove it from the charge_data DataFrame
-    replicate_column = charge_data['replicate']
-    charge_data = charge_data.drop('replicate', axis=1)
+    replicate_column = charge_data["replicate"]
+    charge_data = charge_data.drop("replicate", axis=1)
 
     # Get the residue identifiers (e.g., 1Ala) for each atom
     residues_indentifier = get_residue_identifiers(template)
 
     # Assign the residue identifiers as the column names of the charge DataFrame
     charge_data.columns = residues_indentifier
-    sum_by_residues = charge_data.groupby(by=charge_data.columns, sort=False, axis=1).sum()
+    sum_by_residues = charge_data.groupby(
+        by=charge_data.columns, sort=False, axis=1
+    ).sum()
 
     # Add the "replicate" column back to the sum_by_residues DataFrame
-    sum_by_residues['replicate'] = replicate_column
+    sum_by_residues["replicate"] = replicate_column
 
     return sum_by_residues
 
-def final_charge_dataset(charge_file: str, template: str, mutations: List[int]) -> pd.DataFrame:
+
+def final_charge_dataset(
+    charge_file: str, template: str, mutations: List[int]
+) -> pd.DataFrame:
     """
     Create final charge data set.
 
@@ -600,22 +632,25 @@ def final_charge_dataset(charge_file: str, template: str, mutations: List[int]) 
     """
     print(f"   > Converting atoms to residues for {charge_file}.")
     # Load the charge file as a DataFrame
-    charge_data = pd.read_csv(charge_file, sep='\t')
-    
+    charge_data = pd.read_csv(charge_file, sep="\t")
+
     # Average atoms by residue to minimize the inaccuracies of Mulliken charges
     avg_by_residues = summed_residue_charge(charge_data, template)
 
     # Drop the residue columns that were mutated
     # We can't compare these residues' charges as their atom counts differ
-    charges_df = avg_by_residues.drop(avg_by_residues.columns[[m for m in mutations]], axis=1)
+    charges_df = avg_by_residues.drop(
+        avg_by_residues.columns[[m for m in mutations]], axis=1
+    )
 
-     # Save the individual dataframe to a CSV file
+    # Save the individual dataframe to a CSV file
     geometry_name = os.getcwd().split("/")[-1]
     output_file = f"{geometry_name}_charges.csv"
     charges_df.to_csv(output_file, index=False)
     print(f"   > Saved {output_file}.")
 
     return charges_df
+
 
 def calculate_esp(component_atoms, scheme):
     """
@@ -687,6 +722,7 @@ def calculate_esp(component_atoms, scheme):
     component_esp = k * total_esp * ((C_e)) * cal_J * faraday
 
     return component_esp
+
 
 def collect_esp_components(first_job: int, last_job: int, step: int) -> None:
     """
@@ -761,9 +797,7 @@ def collect_esp_components(first_job: int, last_job: int, step: int) -> None:
 
                         # Run a function
                         try:
-                            component_esp = calculate_esp(
-                                component_atoms, scheme
-                            )
+                            component_esp = calculate_esp(component_atoms, scheme)
                         except:
                             print(f"Job: {replicate}-->{dir}")
                         charge_scheme_df.loc[row_index, key] = component_esp
