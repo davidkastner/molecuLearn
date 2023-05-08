@@ -38,4 +38,3 @@ def check_file_exists(filename):
     else:
         print(f"   > File '{filename}' exists.")
         return None
-        
