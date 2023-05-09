@@ -14,7 +14,6 @@ molecuLearn
    from ab-initio molecular dynamics (AIMD) trajectories.
    mL is a Python package.
 
-
 .. container:: .buttons
 
    `Docs <getting_started.html>`_
