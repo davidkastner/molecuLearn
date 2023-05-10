@@ -129,7 +129,8 @@ def cli(
         ml.rf.plot_data(df_charge, df_dist, mimos)
 
         # Preprocess the data and split into train and test sets
-        data_split, df_dist, df_charge = ml.rf.preprocess_data(df_charge, df_dist, mimos, 2, test_frac=0.875)
+        # data_split, df_dist, df_charge = ml.rf.preprocess_data(df_charge, df_dist, mimos, 2, test_frac=0.875)
+        data_split, df_dist, df_charge = ml.rf.preprocess_data(df_charge, df_dist, mimos, 1)
 
         # Train a random forest classifier for each feature
         rf_cls = ml.rf.train_random_forest(data_split, n_trees=200, max_depth=50)
@@ -154,7 +155,8 @@ def cli(
         ml.mlp.plot_data(df_charge, df_dist, mimos)
 
         # Preprocess the data and split into train, validation, and test sets
-        data_split, df_dist, df_charge = ml.mlp.preprocess_data(df_charge, df_dist, mimos, 2, val_frac=0.75, test_frac=0.875)
+        # data_split, df_dist, df_charge = ml.mlp.preprocess_data(df_charge, df_dist, mimos, 2, val_frac=0.75, test_frac=0.875)
+        data_split, df_dist, df_charge = ml.mlp.preprocess_data(df_charge, df_dist, mimos, 1)
 
         # Build the train, validation, and test dataloaders
         train_loader, val_loader, test_loader = ml.mlp.build_dataloaders(data_split)
