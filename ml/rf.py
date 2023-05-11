@@ -517,13 +517,14 @@ def shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos):
     fig, axs = plt.subplots(1, 2, figsize=(15, 5))
     for j, feature in enumerate(features):
         plt.sca(axs[j])
-        shap.summary_plot(shap_values[feature], 
-            test[feature], 
+        shap.summary_plot(
+            shap_values[feature],
+            test[feature],
             feature_names=df[feature]["mc6"].columns.to_list(),
             plot_type="bar",
             show=False,
             plot_size=(15, 5),
-            class_names=mimos
+            class_names=mimos,
         )
         axs[j].set_title(f"{feature}", fontweight="bold")
     plt.savefig(f"rf_shap_combined.png", bbox_inches="tight", format="png", dpi=300)

@@ -11,7 +11,8 @@ molecuLearn
 .. container:: .large
 
    The objective of molecuLearn (mL) is to extract key patterns and molecular insights
-   from ab-initio molecular dynamics (AIMD) trajectories.
+   from ab-initio molecular dynamics (AIMD) trajectories,
+   with the goal of accelerating the analysis of molecular dynamics trajectories.
    mL is a Python package.
 
 .. container:: .buttons

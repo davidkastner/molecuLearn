@@ -9,6 +9,7 @@ dependencies:
   - cookiecutter
   - click
   - jupyterlab
+  - lime
   - matplotlib
   - mdanalysis
   - numpy
@@ -18,6 +19,7 @@ dependencies:
   - scikit-learn
   - scipy
   - seaborn
+  - shap
   - sphinx-autoapi
   - sphinx_rtd_theme
   - pip:

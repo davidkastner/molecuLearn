@@ -258,7 +258,7 @@ def plot_hists(n_max, important_features, class_names, y_preds, **kwargs):
     """
     savepath = kwargs["savepath"] if "savepath" in kwargs.keys() else None
     bin_labels = kwargs["bin_labels"] if "bin_labels" in kwargs.keys() else None
-    
+
     n_features = len(important_features[0])
     n_labels = len(class_names)
     fig, axs = plt.subplots(n_max)
