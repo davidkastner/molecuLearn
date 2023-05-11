@@ -23,7 +23,7 @@ def load_data(mimos, data_loc):
     Parameters
     ----------
     mimos : list of str
-        List of mimo names.
+        List of mimo names
     data_loc : str
         The location of the (e.g, /home/kastner/packages/molecuLearn/ml/data)
 
@@ -33,8 +33,8 @@ def load_data(mimos, data_loc):
         Dictionary with mimo names as keys and charge data as values in pandas DataFrames.
     df_dist : dict
         Dictionary with mimo names as keys and distance data as values in pandas DataFrames.
+        
     """
-
     df_charge = {}
     df_dist = {}
 
@@ -63,12 +63,6 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.8):
         List of mimo names.
     data_split_type : int
         Integer value of 1 or 2 to pick the type of data split.
-        1 corresponds to splitting each trajectory into train/test then stitching together the
-        train/test sets from each trajectory together to get an overall train/test set. The
-        splitting within each trajectory is based on the provided fractional parameter.
-        2 corresponds to splitting the entire dataset such that the first set of trajectories belong to
-        the train set, and the second set of trajectories belong to the test set. The splitting of the
-        trajectories is based on the provided fractional parameter.
     test_frac : float, optional, default: 0.8
         Fraction of data to use for training (the remaining data will be used for testing).
 
@@ -80,8 +74,17 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.8):
         Revised dictionary with mimo names as keys and distance data as values in pandas DataFrames.
     df_charge : dict
         Revised dictionary with mimo names as keys and charge data as values in pandas DataFrames.
-    """
 
+    Notes
+    -----
+    In data_split_type, 1 corresponds to splitting each trajectory into train/test then stitching together the
+    train/test sets from each trajectory together to get an overall train/test set. The
+    splitting within each trajectory is based on the provided fractional parameter.
+    2 corresponds to splitting the entire dataset such that the first set of trajectories belong to
+    the train set, and the second set of trajectories belong to the test set. The splitting of the
+    trajectories is based on the provided fractional parameter.
+
+    """
     # From df_dist, drop any distances between amino acids if either one of them has the mutants Glu3, Aib20, or Aib23.
     for mimo in mimos:
         if mimo == "mc6":
@@ -269,8 +272,8 @@ def train_random_forest(data_split, n_trees, max_depth):
     -------
     rf_cls : dict
         Dictionary containing trained random forest classifiers for distance and charge features.
+    
     """
-
     rf_cls = {}
     features = ["dist", "charge"]
 
@@ -306,10 +309,9 @@ def evaluate(rf_cls, data_split, mimos):
     y_true : dict
         Dictionary containing 1D-array test data ground truth labels for distance and charge features.
     y_pred_proba : dict
-        Dictionary containing softmax probabilities (2D-array, Ncolumns = number of classes) of the
-        predicted labels for distance and charge features.
-    """
+        Softmax probs dict (2D-array, Ncolumns = number of classes) of the predicted labels for distance and charge features.
 
+    """
     features = ["dist", "charge"]
     y_pred_proba = {}
     y_true = {}
@@ -343,7 +345,6 @@ def plot_data(df_charge, df_dist, mimos):
         List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
 
     """
-
     # Create a 1x2 subplot
     fig, ax = plt.subplots(1, 2, figsize=(12, 4))
 
@@ -376,12 +377,11 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
     y_true : dict
         Dictionary containing 1D-array test data ground truth labels for distance and charge features.
     y_pred_proba : dict
-        Dictionary containing softmax probabilities (2D-array, Ncolumns = number of classes) of the
-        predicted labels for distance and charge features.
+        Softmax probs dict (2D-array, Ncolumns = number of classes) of the predicted labels for distance and charge features.
     mimos : list
         List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
-    """
 
+    """
     features = ["dist", "charge"]
 
     lb = {}
@@ -436,7 +436,6 @@ def plot_confusion_matrices(cms, mimos):
         List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
 
     """
-
     # Define the features for which confusion matrices will be plotted
     features = ["dist", "charge"]
 
@@ -478,8 +477,8 @@ def shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos):
         Dictionary of DataFrames containing charge data for each MIMO type.
     mimos : list
         List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
+    
     """
-
     features = ["dist", "charge"]
 
     df = {"dist": df_dist, "charge": df_charge}
@@ -533,8 +532,8 @@ def shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos):
 
 def plot_gini_importance(rf_cls, df_dist, df_charge):
     """
-    Plot Gini importance bar plots for the top 20 features for each feature type (charge
-    and distance).
+    Plot Gini importance bar plots for the top 20 features for each feature type.
+
     Parameters
     ----------
     rf_cls : dict
@@ -543,8 +542,8 @@ def plot_gini_importance(rf_cls, df_dist, df_charge):
         Dictionary of DataFrames containing distance data for each MIMO type.
     df_charge : dict
         Dictionary of DataFrames containing charge data for each MIMO type.
-    """
 
+    """
     features = ["dist", "charge"]
 
     df = {"dist": df_dist, "charge": df_charge}

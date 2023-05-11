@@ -1,3 +1,5 @@
+"""Functions used by line in RF and MLP."""
+
 from tqdm import tqdm
 from sklearn.ensemble import RandomForestClassifier
 import matplotlib.pyplot as plt
@@ -9,7 +11,7 @@ import sklearn
 
 def lime_analysis(data, model, class_names, feature_names):
     """
-
+    Perform the LIME analysis.
 
     Parameters
     ----------
@@ -56,7 +58,7 @@ def lime_analysis(data, model, class_names, feature_names):
 
 def extract_imporant_features(explainer, model, data):
     """
-
+    Extract important features.
 
     Parameters
     ----------
@@ -87,7 +89,7 @@ def extract_imporant_features(explainer, model, data):
 
 def get_score(scores, idx, trafo=lambda x: x):
     """
-
+    Get scores.
 
     Parameters
     ----------
@@ -111,7 +113,7 @@ def get_score(scores, idx, trafo=lambda x: x):
 
 def get_avg_importance(important_features):
     """
-
+    Get the average importance.
 
     Parameters
     ----------
@@ -134,7 +136,7 @@ def get_avg_importance(important_features):
 
 def get_avg_importance_by_label(important_features, class_names, y_preds):
     """
-
+    Get the average importance by label.
 
     Parameters
     ----------
@@ -175,7 +177,7 @@ def get_avg_importance_by_label(important_features, class_names, y_preds):
 
 def get_nth_mif_by_label(important_features, y_preds, n, n_labels):
     """
-
+    Get the important features with labels.
 
     Parameters
     ----------
@@ -190,7 +192,7 @@ def get_nth_mif_by_label(important_features, y_preds, n, n_labels):
 
     Returns
     -------
-    features_by_label :
+    features_by_label : dict
         For each class, this dictionary contains the label of the nth most important
         feature for all data points that were labelled to belong to this class
         by the model.
@@ -205,7 +207,7 @@ def get_nth_mif_by_label(important_features, y_preds, n, n_labels):
 
 def get_nth_mif(important_features, n):
     """
-
+    Get the nth important feature.
 
     Parameters
     ----------
@@ -229,7 +231,7 @@ def get_nth_mif(important_features, n):
 
 def plot_hists(n_max, important_features, class_names, y_preds, **kwargs):
     """
-
+    Plotting function to generate histogram plot.
 
     Parameters
     ----------
@@ -310,7 +312,7 @@ def plot_hists(n_max, important_features, class_names, y_preds, **kwargs):
 
 def plot_importance_ranking(avg_scores, feature_names, n_max, **kwargs):
     """
-
+    Plotting function for the importance.
 
     Parameters
     ----------
@@ -350,7 +352,7 @@ def plot_importance_ranking_by_label(
     avg_scores_by_label, feature_names, class_names, n_max, stacked=False, **kwargs
 ):
     """
-
+    Plotting function for the importance.
 
     Parameters
     ----------
@@ -443,10 +445,7 @@ def plot_importance_ranking_by_label(
 
 def evaluate_model(model, inputs):
     """
-
-
-    Just a wrapper to enable seamless use for both RF and MLP classifiers.
-    Self-explainatory.
+    A wrapper to enable seamless use for both RF and MLP classifiers.
 
     """
     if isinstance(model, torch.nn.Module):

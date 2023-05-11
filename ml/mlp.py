@@ -18,14 +18,21 @@ def gradient_step(model, dataloader, optimizer, device):
     """
     A function to train on the entire dataset for one epoch.
 
-    Args:
-        model (torch.nn.Module): the model
-        dataloader (torch.utils.data.DataLoader): DataLoader object for the train data
-        optimizer (torch.optim.Optimizer(()): optimizer object to interface gradient calculation and optimization
-        device (str): The device (usually 'cuda:0' for GPU or 'cpu' for CPU)
+    Parameters
+    ----------
+        model : torch.nn.Module
+            The model
+        dataloader : torch.utils.data.DataLoader
+            DataLoader object for the train data
+        optimizer : torch.optim.Optimizer(())
+            optimizer object to interface gradient calculation and optimization
+        device : str
+            The device (usually 'cuda:0' for GPU or 'cpu' for CPU)
 
-    Returns:
-        float: loss averaged over all the batches
+    Returns
+    -------
+        loss : float
+            Loss averaged over all the batches
 
     """
 
@@ -48,20 +55,28 @@ def gradient_step(model, dataloader, optimizer, device):
         loss.backward()
         optimizer.step()
 
-    return np.array(epoch_loss).mean()
+    loss = np.array(epoch_loss).mean()
+
+    return loss
 
 
 def validate(model, dataloader, device):
     """
     A function to validate on the validation dataset for one epoch.
 
-    Args:
-        model (torch.nn.Module): the model
-        dataloader (torch.utils.data.DataLoader): DataLoader object for the validation data
-        device (str): Your device (usually 'cuda:0' for GPU or 'cpu' for CPU)
+    Parameters
+    ----------
+        model : torch.nn.Module
+            The model
+        dataloader : torch.utils.data.DataLoader
+            DataLoader object for the validation data
+        device : str
+            Your device (usually 'cuda:0' for GPU or 'cpu' for CPU)
 
-    Returns:
-        float: loss averaged over all the batches
+    Returns
+    -------
+        loss : float
+            Loss averaged over all the batches
 
     """
 
@@ -75,36 +90,41 @@ def validate(model, dataloader, device):
 
             # validate your model on each batch here
             y_pred = model(X)
-
             loss = torch.nn.functional.cross_entropy(y_pred.squeeze(), y)
             val_loss.append(loss.item())
 
-    return np.array(val_loss).mean()
+    loss = np.array(val_loss).mean()
+
+    return loss
 
 
 def train(layers, learning_rate, n_epochs, train_dataloader, val_dataloader, device):
     """
     A function to train and validate the model over all epochs.
 
-    Args:
-        layers (dict): Dictionary containing model architecture for distance and charge features
-        learning_rate: step size at which model adjusts parameters in response to the computed error gradient
-        n_epochs: number of epochs over training and validation sets
-        train_dataloader (dict of torch.utils.data.DataLoader): Dictionary containing DataLoader object
-                                                                for the train data of distance and charge
-                                                                features
-        val_dataloader (dict of torch.utils.data.DataLoader): Dictionary containing DataLoader object
-                                                              for the validation data of distance and charge
-                                                              features
-        device (str): Your device (usually 'cuda:0' for GPU or 'cpu' for CPU)
+    Parameters
+    ----------
+    layers : dict
+        Dictionary containing model architecture for distance and charge features
+    learning_rate : float
+        Step size at which model adjusts parameters in response to the computed error gradient
+    n_epochs: int
+        Number of epochs over training and validation sets
+    train_dataloader : dict of torch.utils.data.DataLoader
+        Dictionary containing DataLoader object for the train data of distance and charge features
+    val_dataloader : dict[torch.utils.data.DataLoader]
+        Dictionary containing DataLoader object for the validation data of distance and charge features
+    device : str
+        Your device (usually 'cuda:0' for GPU or 'cpu' for CPU).
 
-    Returns:
-        mlp_cls (dict): Dictionary containing trained MLP models for distance and charge features
-        train_loss_per_epoch (dict): Dictionary containing training loss as a function of epoch number
-                                     for distance and charge features
-        val_loss_per_epoch (dict): Dictionary containing validation loss as a function of epoch number
-                                   for distance and charge features
-
+    Returns
+    -------
+    mlp_cls : dict
+        Dictionary containing trained MLP models for distance and charge features
+    train_loss_per_epoch : dict
+        Dictionary containing training loss as a function of epoch number for distance and charge features
+    val_loss_per_epoch : dict
+        Dictionary containing validation loss as a function of epoch number for distance and charge features
 
     """
     mlp_cls = {}
@@ -146,22 +166,30 @@ def evaluate_model(mlp_cls, test_dataloader, device, mimos):
     """
     A function to evaluate the model on test data.
 
-    Args:
-        mlp_cls (dict of torch.nn.Module): Dictionary containing trained MLP classifiers for distance and
-                                           charge features
-        test_dataloader (dict of torch.utils.data.DataLoader): Dictionary containing DataLoader object
-                                                               for the test data for distance and charge
-                                                               features
-        device (str): Your device (usually 'cuda:0' for GPU or 'cpu' for CPU)
-        mimos (list): List of MIMO types, e.g. ['mc6', mc6s', 'mc6sa']
+    Parameters
+    ----------
+    mlp_cls : dict of torch.nn.Module
+        Dictionary containing trained MLP classifiers for distance and charge features
+    test_dataloader (dict of torch.utils.data.DataLoader):
+        Dictionary containing DataLoader object for the test data for distance and charge features
+    device : str
+        Your device (usually 'cuda:0' for GPU or 'cpu' for CPU)
+    mimos : list
+        List of MIMO types, e.g. ['mc6', mc6s', 'mc6sa']
 
-    Returns:
-        test loss (dict): Dictionary containing average test loss for distance and charge features
-        y_true (dict): Dictionary containing test data ground truth labels for distance and charge features
-        y_pred_proba (dict): Dictionary containing softmax probabilities of the predicted labels for distance
-                             and charge features
-        y_pred (dict): Dictionary containing prediction labels for distance and charge features
-        cms (dict): Dictionary containing confusion matrices for distance and charge features.
+    Returns
+    -------
+    test loss : dict
+        Dictionary containing average test loss for distance and charge features
+    y_true : dict
+        Dictionary containing test data ground truth labels for distance and charge features
+    y_pred_proba : dict
+        Dictionary containing softmax probabilities of the predicted labels for distance and charge features
+    y_pred : dict
+        Dictionary containing prediction labels for distance and charge features
+    cms : dict
+        Dictionary containing confusion matrices for distance and charge features.
+
     """
     features = ["dist", "charge"]
     y_pred_proba = {}
@@ -226,12 +254,14 @@ class MimoMLP(torch.nn.Module):
 def load_data(mimos, data_loc):
     """
     Load data from CSV files for each mimo in the given list.
+
     Parameters
     ----------
-    mimos : list of str
+    mimos : list[str]
         List of mimo names.
     data_loc : str
         The location of the (e.g, /home/kastner/packages/molecuLearn/ml/data)
+
     Returns
     -------
     df_charge : dict
@@ -259,6 +289,7 @@ def preprocess_data(
 ):
     """
     Preprocess data for training and testing by splitting it based on the given test and validation fractions.
+
     Parameters
     ----------
     df_charge : dict
@@ -280,6 +311,7 @@ def preprocess_data(
         Fraction of data to use for training (the remaining data will be used for validation and testing)
     test_frac : float, optional, default: 0.8
         Fraction of data to use for training and validation (the remaining data will be used for testing).
+
     Returns
     -------
     data_split : dict
@@ -288,6 +320,7 @@ def preprocess_data(
         Revised dictionary with mimo names as keys and charge data as values in pandas DataFrames.
     df_dist : dict
         Revised dictionary with mimo names as keys and distance data as values in pandas DataFrames.
+
     """
 
     # From df_dist, drop any distances between amino acids if either one of them has the mutants Glu3, Aib20, or Aib23.
@@ -485,17 +518,20 @@ def build_dataloaders(data_split):
     """
     A function to build the DataLoaders from the data split
 
-    Args:
-        data split (dict): Dictionary containing the training and testing data for distance and
-                           charge features.
+    Parameters
+    ----------
+    data split : dict
+        Dictionary containing the training and testing data for distance and charge features.
 
-    Returns:
-        train_loader (dict): Dictionary containing DataLoader object for the training data for distance
-                             and charge features
-        val_loader (dict): Dictionary containing DataLoader object for the validation data for distance
-                           and charge features
-        test_loader (dict): Dictionary containing DataLoader object for the test data for distance
-                            and charge features
+    Returns
+    -------
+    train_loader : dict
+        Dictionary containing DataLoader object for the training data for distance and charge features
+    val_loader : dict
+        Dictionary containing DataLoader object for the validation data for distance and charge features
+    test_loader : dict
+        Dictionary containing DataLoader object for the test data for distance and charge features
+
     """
 
     train_sets = {
@@ -537,6 +573,7 @@ def build_dataloaders(data_split):
 def plot_data(df_charge, df_dist, mimos):
     """
     Plot the average charge and distance data for the given MIMO types.
+
     Parameters
     ----------
     df_charge : dict
@@ -545,6 +582,7 @@ def plot_data(df_charge, df_dist, mimos):
         Dictionary of DataFrames containing distance data for each MIMO type.
     mimos : list
         List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
+
     """
 
     # Create a 1x2 subplot
@@ -574,12 +612,14 @@ def plot_data(df_charge, df_dist, mimos):
 def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
     """
     Plot the train and validation losses as a function of epoch number for the charge and distance features.
+
     Parameters
     ----------
     train_loss_per_epoch : dict
         Dictionary of np.arrays containing training losses per epoch for charge and distance features.
     val_loss_per_epoch : dict
         Dictionary of np.arrays containing validation losses per epoch for charge and distance features.
+
     """
 
     features = ["dist", "charge"]
@@ -604,16 +644,16 @@ def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
 def plot_roc_curve(y_true, y_pred_proba, mimos):
     """
     Plot the ROC curve for the test data of the charge and distance features.
+
     Parameters
     ----------
     y_true : dict
-        Dictionary of np.arrays containing ground truth labels of the test data for charge and
-        distance features.
+        Dict[np.arrays] containing ground truth labels of test data for charge and distance features.
     y_pred_proba : dict
-        Dictionary of np.arrays containing softmaxed probability predictions of the test data for charge and
-        distance features.
+        Dict[np.arrays] containing softmaxed probability predictions of the test data for charge and distance features.
     mimos : list
         List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
+
     """
 
     features = ["dist", "charge"]
@@ -661,12 +701,14 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
 def plot_confusion_matrices(cms, mimos):
     """
     Plot confusion matrices for distance and charge features.
+
     Parameters
     ----------
     cms : dict
         Dictionary containing confusion matrices for distance and charge features.
     mimos : list
         List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
+
     """
 
     # Define the features for which confusion matrices will be plotted
@@ -697,6 +739,7 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
     """
     Plot SHAP dot plots for each mimichrome (for both charge and distance features)
     to identify contribution of each feature to the prediction for a specific instance.
+
     Parameters
     ----------
     mlp_cls : dict
@@ -710,6 +753,7 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
         Dictionary of DataFrames containing charge data for each MIMO type.
     mimos : list
         List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
+
     """
 
     features = ["dist", "charge"]
@@ -767,6 +811,7 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
 def format_plots() -> None:
     """
     General plotting parameters for the Kulik Lab.
+
     """
     font = {"family": "sans-serif", "weight": "bold", "size": 10}
     plt.rc("font", **font)
