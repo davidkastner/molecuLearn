@@ -9,6 +9,8 @@ dependencies:
   - pip:
     - numpy
     - matplotlib
+    - pytorch
+    - scikit-learn
     - shap
     - lime
     - sphinx==6.0.0
