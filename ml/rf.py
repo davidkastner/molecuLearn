@@ -1,5 +1,6 @@
 import numpy as np
 import sys
+
 np.set_printoptions(threshold=sys.maxsize)
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
@@ -41,9 +42,9 @@ def load_data(mimos, data_loc):
     for mimo in mimos:
         # Load charge and distance data from CSV files and store them in dictionaries
         df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charges_esp.csv")
-        df_charge[mimo] = df_charge[mimo].drop(columns=['replicate'])
+        df_charge[mimo] = df_charge[mimo].drop(columns=["replicate"])
         df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distance_v2.csv")
-        df_dist[mimo] = df_dist[mimo].drop(columns=['replicate'])
+        df_dist[mimo] = df_dist[mimo].drop(columns=["replicate"])
 
     return df_charge, df_dist
 
@@ -61,7 +62,7 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.8):
     mimos : list of str
         List of mimo names.
     data_split_type : int
-        Integer value of 1 or 2 to pick the type of data split. 
+        Integer value of 1 or 2 to pick the type of data split.
         1 corresponds to splitting each trajectory into train/test then stitching together the
         train/test sets from each trajectory together to get an overall train/test set. The
         splitting within each trajectory is based on the provided fractional parameter.
@@ -78,18 +79,24 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.8):
     df_dist : dict
         Revised dictionary with mimo names as keys and distance data as values in pandas DataFrames.
     df_charge : dict
-        Revised dictionary with mimo names as keys and charge data as values in pandas DataFrames. 
+        Revised dictionary with mimo names as keys and charge data as values in pandas DataFrames.
     """
 
     # From df_dist, drop any distances between amino acids if either one of them has the mutants Glu3, Aib20, or Aib23.
     for mimo in mimos:
         if mimo == "mc6":
-            df_dist[mimo] = df_dist[mimo].loc[:, ~df_dist[mimo].columns.str.contains('GLU3|GLN20|SER23')]
+            df_dist[mimo] = df_dist[mimo].loc[
+                :, ~df_dist[mimo].columns.str.contains("GLU3|GLN20|SER23")
+            ]
         elif mimo == "mc6s":
-            df_dist[mimo] = df_dist[mimo].loc[:, ~df_dist[mimo].columns.str.contains('LEU3|GLN20|SER23')]
+            df_dist[mimo] = df_dist[mimo].loc[
+                :, ~df_dist[mimo].columns.str.contains("LEU3|GLN20|SER23")
+            ]
         elif mimo == "mc6sa":
-            df_dist[mimo] = df_dist[mimo].loc[:, ~df_dist[mimo].columns.str.contains('LEU3|AIB20|AIB23')]
-    
+            df_dist[mimo] = df_dist[mimo].loc[
+                :, ~df_dist[mimo].columns.str.contains("LEU3|AIB20|AIB23")
+            ]
+
     class_assignment = {"mc6": 0, "mc6s": 1, "mc6sa": 2}
     features = ["dist", "charge"]
 
@@ -111,23 +118,23 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.8):
     data_split = {}
     if data_split_type == 1:
         X_train = {
-                  "dist": {mimo: np.empty((0, df_dist[mimo].shape[1])) for mimo in mimos},
-                  "charge": {mimo: np.empty((0, df_charge[mimo].shape[1])) for mimo in mimos},
+            "dist": {mimo: np.empty((0, df_dist[mimo].shape[1])) for mimo in mimos},
+            "charge": {mimo: np.empty((0, df_charge[mimo].shape[1])) for mimo in mimos},
         }
 
         X_test = {
-                 "dist": {mimo: np.empty((0, df_dist[mimo].shape[1])) for mimo in mimos},
-                 "charge": {mimo: np.empty((0, df_charge[mimo].shape[1])) for mimo in mimos},
+            "dist": {mimo: np.empty((0, df_dist[mimo].shape[1])) for mimo in mimos},
+            "charge": {mimo: np.empty((0, df_charge[mimo].shape[1])) for mimo in mimos},
         }
 
         y_train = {
-                  "dist": {mimo: np.empty((0,), dtype=int) for mimo in mimos},
-                  "charge": {mimo: np.empty((0,), dtype=int) for mimo in mimos},
+            "dist": {mimo: np.empty((0,), dtype=int) for mimo in mimos},
+            "charge": {mimo: np.empty((0,), dtype=int) for mimo in mimos},
         }
 
         y_test = {
-                 "dist": {mimo: np.empty((0,), dtype=int) for mimo in mimos},
-                 "charge": {mimo: np.empty((0,), dtype=int) for mimo in mimos},
+            "dist": {mimo: np.empty((0,), dtype=int) for mimo in mimos},
+            "charge": {mimo: np.empty((0,), dtype=int) for mimo in mimos},
         }
 
         # Split data into training and testing sets based on the test_frac parameters and normalize data.
@@ -137,10 +144,39 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.8):
             count = 0
             while count < int(X[feature]["mc6"].shape[0]):
                 for mimo in mimos:
-                    X_train[feature][mimo] = np.vstack((X_train[feature][mimo], X[feature][mimo][count:count+test_cutoff, :]))
-                    X_test[feature][mimo] = np.vstack((X_test[feature][mimo], X[feature][mimo][count+test_cutoff:count+int(X[feature][mimo].shape[0]/8), :]))
-                    y_train[feature][mimo] = np.concatenate((y_train[feature][mimo], y[feature][mimo][count:count+test_cutoff]))
-                    y_test[feature][mimo] = np.concatenate((y_test[feature][mimo], y[feature][mimo][count+test_cutoff:count+int(y[feature][mimo].shape[0]/8)]))
+                    X_train[feature][mimo] = np.vstack(
+                        (
+                            X_train[feature][mimo],
+                            X[feature][mimo][count : count + test_cutoff, :],
+                        )
+                    )
+                    X_test[feature][mimo] = np.vstack(
+                        (
+                            X_test[feature][mimo],
+                            X[feature][mimo][
+                                count
+                                + test_cutoff : count
+                                + int(X[feature][mimo].shape[0] / 8),
+                                :,
+                            ],
+                        )
+                    )
+                    y_train[feature][mimo] = np.concatenate(
+                        (
+                            y_train[feature][mimo],
+                            y[feature][mimo][count : count + test_cutoff],
+                        )
+                    )
+                    y_test[feature][mimo] = np.concatenate(
+                        (
+                            y_test[feature][mimo],
+                            y[feature][mimo][
+                                count
+                                + test_cutoff : count
+                                + int(y[feature][mimo].shape[0] / 8)
+                            ],
+                        )
+                    )
                 count += int(X[feature]["mc6"].shape[0] / 8)
 
             data_split[feature] = {
@@ -152,34 +188,66 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.8):
 
             # Normalize data
             x_scaler = StandardScaler()
-            x_scaler.fit(data_split[feature]['X_train'])
-            data_split[feature]['X_train'] = x_scaler.transform(data_split[feature]['X_train'])
-            data_split[feature]['X_test'] = x_scaler.transform(data_split[feature]['X_test'])
+            x_scaler.fit(data_split[feature]["X_train"])
+            data_split[feature]["X_train"] = x_scaler.transform(
+                data_split[feature]["X_train"]
+            )
+            data_split[feature]["X_test"] = x_scaler.transform(
+                data_split[feature]["X_test"]
+            )
 
             # Shuffle data splits while ensuring correspondence between features and labels.
-            data_split[feature]['X_train'], data_split[feature]['y_train'] = shuffle(data_split[feature]['X_train'], data_split[feature]['y_train'], random_state=42)
-            data_split[feature]['X_test'], data_split[feature]['y_test'] = shuffle(data_split[feature]['X_test'], data_split[feature]['y_test'], random_state=42)
+            data_split[feature]["X_train"], data_split[feature]["y_train"] = shuffle(
+                data_split[feature]["X_train"],
+                data_split[feature]["y_train"],
+                random_state=42,
+            )
+            data_split[feature]["X_test"], data_split[feature]["y_test"] = shuffle(
+                data_split[feature]["X_test"],
+                data_split[feature]["y_test"],
+                random_state=42,
+            )
 
     elif data_split_type == 2:
         for feature in features:
             test_cutoff = int(test_frac * X[feature]["mc6"].shape[0])
 
             data_split[feature] = {
-                "X_train": np.vstack([X[feature][mimo][0:test_cutoff, :] for mimo in mimos]),
-                "X_test": np.vstack([X[feature][mimo][test_cutoff:, :] for mimo in mimos]),
-                "y_train": np.concatenate([y[feature][mimo][0:test_cutoff] for mimo in mimos]),
-                "y_test": np.concatenate([y[feature][mimo][test_cutoff:] for mimo in mimos]),
+                "X_train": np.vstack(
+                    [X[feature][mimo][0:test_cutoff, :] for mimo in mimos]
+                ),
+                "X_test": np.vstack(
+                    [X[feature][mimo][test_cutoff:, :] for mimo in mimos]
+                ),
+                "y_train": np.concatenate(
+                    [y[feature][mimo][0:test_cutoff] for mimo in mimos]
+                ),
+                "y_test": np.concatenate(
+                    [y[feature][mimo][test_cutoff:] for mimo in mimos]
+                ),
             }
 
             # Normalize data
             x_scaler = StandardScaler()
-            x_scaler.fit(data_split[feature]['X_train'])
-            data_split[feature]['X_train'] = x_scaler.transform(data_split[feature]['X_train'])
-            data_split[feature]['X_test'] = x_scaler.transform(data_split[feature]['X_test'])
+            x_scaler.fit(data_split[feature]["X_train"])
+            data_split[feature]["X_train"] = x_scaler.transform(
+                data_split[feature]["X_train"]
+            )
+            data_split[feature]["X_test"] = x_scaler.transform(
+                data_split[feature]["X_test"]
+            )
 
             # Shuffle data splits while ensuring correspondence between features and labels.
-            data_split[feature]['X_train'], data_split[feature]['y_train'] = shuffle(data_split[feature]['X_train'], data_split[feature]['y_train'], random_state=42)
-            data_split[feature]['X_test'], data_split[feature]['y_test'] = shuffle(data_split[feature]['X_test'], data_split[feature]['y_test'], random_state=42)
+            data_split[feature]["X_train"], data_split[feature]["y_train"] = shuffle(
+                data_split[feature]["X_train"],
+                data_split[feature]["y_train"],
+                random_state=42,
+            )
+            data_split[feature]["X_test"], data_split[feature]["y_test"] = shuffle(
+                data_split[feature]["X_test"],
+                data_split[feature]["y_test"],
+                random_state=42,
+            )
 
     return data_split, df_dist, df_charge
 
@@ -238,7 +306,7 @@ def evaluate(rf_cls, data_split, mimos):
     y_true : dict
         Dictionary containing 1D-array test data ground truth labels for distance and charge features.
     y_pred_proba : dict
-        Dictionary containing softmax probabilities (2D-array, Ncolumns = number of classes) of the 
+        Dictionary containing softmax probabilities (2D-array, Ncolumns = number of classes) of the
         predicted labels for distance and charge features.
     """
 
@@ -247,7 +315,9 @@ def evaluate(rf_cls, data_split, mimos):
     y_true = {}
     cms = {}
     for feature in features:
-        y_pred_proba[feature] = rf_cls[feature].predict_proba(data_split[feature]["X_test"])
+        y_pred_proba[feature] = rf_cls[feature].predict_proba(
+            data_split[feature]["X_test"]
+        )
         y_pred = rf_cls[feature].predict(data_split[feature]["X_test"])
 
         true_labels = data_split[feature]["y_test"]
@@ -297,6 +367,7 @@ def plot_data(df_charge, df_dist, mimos):
     plt.savefig("rf_data.png", bbox_inches="tight", format="png", dpi=300)
     plt.close()
 
+
 def plot_roc_curve(y_true, y_pred_proba, mimos):
     """
     Plot the ROC curve for the test data of the charge and distance features.
@@ -305,13 +376,13 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
     y_true : dict
         Dictionary containing 1D-array test data ground truth labels for distance and charge features.
     y_pred_proba : dict
-        Dictionary containing softmax probabilities (2D-array, Ncolumns = number of classes) of the 
+        Dictionary containing softmax probabilities (2D-array, Ncolumns = number of classes) of the
         predicted labels for distance and charge features.
     mimos : list
         List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
     """
 
-    features = ['dist', 'charge']
+    features = ["dist", "charge"]
 
     lb = {}
     for feature in features:
@@ -329,19 +400,29 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
             roc_auc[j] = auc(fpr[j], tpr[j])
 
         plt.figure()
-        colors = cycle(['red', 'blue', 'green'])
+        colors = cycle(["red", "blue", "green"])
         for j, color in zip(range(len(mimos)), colors):
-            plt.plot(fpr[j], tpr[j], color=color, lw=2,
-                     label='ROC curve (area = %0.2f) for class %s' % (roc_auc[j], mimos[j]))
-        plt.plot([0, 1], [0, 1], 'k--', lw=2)
+            plt.plot(
+                fpr[j],
+                tpr[j],
+                color=color,
+                lw=2,
+                label="ROC curve (area = %0.2f) for class %s" % (roc_auc[j], mimos[j]),
+            )
+        plt.plot([0, 1], [0, 1], "k--", lw=2)
         plt.xlim([-0.05, 1.0])
         plt.ylim([0.0, 1.05])
-        plt.xlabel('false positive rate', weight='bold')
-        plt.ylabel('true positive rate', weight='bold')
-        plt.title('Multi-class classification ROC for %s features' % feature, weight='bold')
-        plt.legend(loc='best')
-        plt.savefig("rf_roc_" + feature + ".png", bbox_inches="tight", format="png", dpi=300)
+        plt.xlabel("false positive rate", weight="bold")
+        plt.ylabel("true positive rate", weight="bold")
+        plt.title(
+            "Multi-class classification ROC for %s features" % feature, weight="bold"
+        )
+        plt.legend(loc="best")
+        plt.savefig(
+            "rf_roc_" + feature + ".png", bbox_inches="tight", format="png", dpi=300
+        )
         plt.close()
+
 
 def plot_confusion_matrices(cms, mimos):
     """
@@ -379,6 +460,7 @@ def plot_confusion_matrices(cms, mimos):
     plt.savefig("rf_cm.png", bbox_inches="tight", format="png", dpi=300)
     plt.close()
 
+
 def shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos):
     """
     Plot SHAP dot plots for each mimichrome (for both charge and distance features)
@@ -398,7 +480,7 @@ def shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos):
         List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
     """
 
-    features = ['dist', 'charge']
+    features = ["dist", "charge"]
 
     df = {"dist": df_dist, "charge": df_charge}
 
@@ -409,20 +491,44 @@ def shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos):
         test_features = data_split[feature]["X_test"]
         # Define the first 100 datapoints as the background used as reference when calculating SHAP values
         background = test_features[:100]
-        test[feature] = test_features[-156:] # Same number of test data points as MLP
+        test[feature] = test_features[-156:]  # Same number of test data points as MLP
         explainer = shap.TreeExplainer(rf_cls[feature], data=background)
         shap_values[feature] = explainer.shap_values(test[feature])
-        
+
     # For each mimichrome, plot the SHAP values as dot plots
     for i in range(len(mimos)):
         # Each mimichrome has two datasets: charges and features
         fig, axs = plt.subplots(1, 2, figsize=(20, 5))
         for j, ax in enumerate(axs):
             plt.sca(ax)
-            shap.summary_plot(shap_values[features[j]][i], test[features[j]], feature_names=df[features[j]][mimos[i]].columns.to_list(), show=False)
+            shap.summary_plot(
+                shap_values[features[j]][i],
+                test[features[j]],
+                feature_names=df[features[j]][mimos[i]].columns.to_list(),
+                show=False,
+            )
             axs[j].set_title(f"{features[j]}, {mimos[i]}", fontweight="bold")
-        plt.savefig(f"rf_shap_{mimos[i]}.png", bbox_inches="tight", format="png", dpi=300)
+        plt.savefig(
+            f"rf_shap_{mimos[i]}.png", bbox_inches="tight", format="png", dpi=300
+        )
         plt.close()
+
+    # Get the summary SHAP plots that combine feature importance for all classes
+    fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+    for j, feature in enumerate(features):
+        plt.sca(axs[j])
+        shap.summary_plot(shap_values[feature], 
+            test[feature], 
+            feature_names=df[feature]["mc6"].columns.to_list(),
+            plot_type="bar",
+            show=False,
+            plot_size=(15, 5),
+            class_names=mimos
+        )
+        axs[j].set_title(f"{feature}", fontweight="bold")
+    plt.savefig(f"rf_shap_combined.png", bbox_inches="tight", format="png", dpi=300)
+    plt.close()
+
 
 def plot_gini_importance(rf_cls, df_dist, df_charge):
     """
@@ -436,9 +542,9 @@ def plot_gini_importance(rf_cls, df_dist, df_charge):
         Dictionary of DataFrames containing distance data for each MIMO type.
     df_charge : dict
         Dictionary of DataFrames containing charge data for each MIMO type.
-    """    
+    """
 
-    features = ['dist', 'charge']
+    features = ["dist", "charge"]
 
     df = {"dist": df_dist, "charge": df_charge}
 
@@ -453,16 +559,27 @@ def plot_gini_importance(rf_cls, df_dist, df_charge):
         top_indices = sorted_indices[:20]
         top_gini_importance[feature] = gini_importance[feature][top_indices]
         # Get corresponding feature names
-        all_feature_names = df[feature]["mc6"].columns.to_list() # All mimo classes havev same feature labels
+        all_feature_names = df[feature][
+            "mc6"
+        ].columns.to_list()  # All mimo classes havev same feature labels
         top_feature_names[feature] = [all_feature_names[j] for j in top_indices]
 
-        axs[i].bar(range(len(top_gini_importance[feature])), top_gini_importance[feature], tick_label=top_feature_names[feature], color='red')
-        axs[i].set_xlabel('features', weight="bold")
-        axs[i].set_ylabel('Gini importance', weight="bold")
-        axs[i].set_title(f"top 20 Gini importances for all classes for {feature} feature", weight="bold")
-        axs[i].tick_params(axis='x', rotation=90)
+        axs[i].bar(
+            range(len(top_gini_importance[feature])),
+            top_gini_importance[feature],
+            tick_label=top_feature_names[feature],
+            color="red",
+        )
+        axs[i].set_xlabel("features", weight="bold")
+        axs[i].set_ylabel("Gini importance", weight="bold")
+        axs[i].set_title(
+            f"top 20 Gini importances for all classes for {feature} feature",
+            weight="bold",
+        )
+        axs[i].tick_params(axis="x", rotation=90)
     plt.savefig(f"rf_gini.png", bbox_inches="tight", format="png", dpi=300)
     plt.close()
+
 
 def format_plots() -> None:
     """
@@ -505,27 +622,56 @@ if __name__ == "__main__":
     plot_confusion_matrices(cms, mimos)
     shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos)
     plot_gini_importance(rf_cls, df_dist, df_charge)
-    
-    
+
     # lime analysis
-    feature_names = {"charge" : list(df_charge['mc6'].columns), "dist" : list(df_dist['mc6'].columns)}
-    bin_labels = {"charge" : feature_names["charge"], "dist" : None} # bin labels to use for histograms by frames
-    n_max = 10 # number of most important features displayed in plots comparing AVERAGE importance
-    n_max_frame = 5 # number of most important features displayed in plots comparing importance BY FRAME
-    
-    
+    feature_names = {
+        "charge": list(df_charge["mc6"].columns),
+        "dist": list(df_dist["mc6"].columns),
+    }
+    bin_labels = {
+        "charge": feature_names["charge"],
+        "dist": None,
+    }  # bin labels to use for histograms by frames
+    n_max = 10  # number of most important features displayed in plots comparing AVERAGE importance
+    n_max_frame = 5  # number of most important features displayed in plots comparing importance BY FRAME
+
     for feature in ["charge", "dist"]:
-        savepath = "rf_lime_"+feature
-        rf = lambda x : lime_utils.evaluate_model(rf_cls[feature], x)
-        data = data_split[feature]['X_test']
+        savepath = "rf_lime_" + feature
+        rf = lambda x: lime_utils.evaluate_model(rf_cls[feature], x)
+        data = data_split[feature]["X_test"]
         feature_labels = feature_names[feature]
-        
-        important_features, y_preds, avg_scores, avg_scores_by_label = lime_utils.lime_analysis(data, rf, mimos, feature_labels) 
-    
-        lime_utils.plot_hists(n_max_frame, important_features, mimos, y_preds, bin_labels = bin_labels[feature], savepath=savepath)
-        lime_utils.plot_importance_ranking(avg_scores, feature_labels, n_max, savepath=savepath)
-        lime_utils.plot_importance_ranking_by_label(avg_scores_by_label, feature_labels, mimos, n_max, stacked=False, savepath=savepath)
-        lime_utils.plot_importance_ranking_by_label(avg_scores_by_label, feature_labels, mimos, n_max, stacked=True, savepath=savepath)  
-    
 
+        (
+            important_features,
+            y_preds,
+            avg_scores,
+            avg_scores_by_label,
+        ) = lime_utils.lime_analysis(data, rf, mimos, feature_labels)
 
+        lime_utils.plot_hists(
+            n_max_frame,
+            important_features,
+            mimos,
+            y_preds,
+            bin_labels=bin_labels[feature],
+            savepath=savepath,
+        )
+        lime_utils.plot_importance_ranking(
+            avg_scores, feature_labels, n_max, savepath=savepath
+        )
+        lime_utils.plot_importance_ranking_by_label(
+            avg_scores_by_label,
+            feature_labels,
+            mimos,
+            n_max,
+            stacked=False,
+            savepath=savepath,
+        )
+        lime_utils.plot_importance_ranking_by_label(
+            avg_scores_by_label,
+            feature_labels,
+            mimos,
+            n_max,
+            stacked=True,
+            savepath=savepath,
+        )
