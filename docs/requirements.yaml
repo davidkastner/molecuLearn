@@ -7,6 +7,8 @@ dependencies:
 
     # Pip-only installs
   - pip:
+    - numpy
+    - matplotlib
     - shap
     - lime
     - sphinx==6.0.0
