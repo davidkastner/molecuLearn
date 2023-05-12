@@ -64,7 +64,8 @@ autoapi_options = ['members',
                    'show-inheritance',
                    'show-module-summary',
                    'imported-members']
-napoleon_google_docstring = False
+napoleon_numpy_docstring = True  # Ensure Napoleon parses numpy-style docstrings
+napoleon_google_docstring = False  # Disable parsing of Google-style docstrings
 napoleon_use_param = False
 napoleon_use_ivar = True
 
