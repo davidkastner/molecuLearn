@@ -7,6 +7,6 @@ dependencies:
 
     # Pip-only installs
   - pip:
-    - sphinx==6.0.0
+    - sphinx==4.1.2
     - sphinx-autoapi
     - https://github.com/revitron/revitron-sphinx-theme/archive/master.zip
