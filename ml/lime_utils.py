@@ -173,7 +173,7 @@ def get_avg_importance_by_label(important_features, class_names, y_preds):
     return avg_importance
 
 
-def get_nth_mif_by_label(important_features, y_preds, n):
+def get_nth_mif_by_label(important_features, y_preds, n, n_labels):
     """
 
 
@@ -198,7 +198,7 @@ def get_nth_mif_by_label(important_features, y_preds, n):
     """
     features_by_label = [
         [f[n][0] for (i, f) in enumerate(important_features) if y_preds[i] == k]
-        for k in range(y_preds.argmax() + 1)
+        for k in range(n_labels)
     ]
     return features_by_label
 
@@ -258,13 +258,14 @@ def plot_hists(n_max, important_features, class_names, y_preds, **kwargs):
     """
     savepath = kwargs["savepath"] if "savepath" in kwargs.keys() else None
     bin_labels = kwargs["bin_labels"] if "bin_labels" in kwargs.keys() else None
-
+    
     n_features = len(important_features[0])
+    n_labels = len(class_names)
     fig, axs = plt.subplots(n_max)
     fig.set_figheight(n_max * 2)
     fig.set_figwidth(5)
     for i in range(n_max):
-        features = get_nth_mif_by_label(important_features, y_preds, i)
+        features = get_nth_mif_by_label(important_features, y_preds, i, n_labels)
         bins = np.linspace(-0.5, n_features - 0.5, n_features + 1)
         axs[i].hist(features, bins=bins, label=class_names, stacked=True)
         if i == n_max - 1:
