@@ -372,6 +372,7 @@ def plot_data(df_charge, df_dist, mimos):
 def plot_roc_curve(y_true, y_pred_proba, mimos):
     """
     Plot the ROC curve for the test data of the charge and distance features.
+
     Parameters
     ----------
     y_true : dict
@@ -462,15 +463,17 @@ def plot_confusion_matrices(cms, mimos):
 
 def shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos):
     """
-    Plot SHAP dot plots for each mimichrome (for both charge and distance features)
-    to identify contribution of each feature to the prediction for a specific instance.
+    Plot SHAP dot plots for each mimichrome.
+
+    Plots are generated for both charge and distance features.
+    Identifies contribution of each feature to the prediction for a specific instance.
+
     Parameters
     ----------
     rf_cls : dict
         Dictionary containing trained RF classifiers for distance and charge features
     data_split : dict
         Dictionary containing the training and testing data for distance and charge features.
-        and charge features
     df_dist : dict
         Dictionary of DataFrames containing distance data for each MIMO type.
     df_charge : dict
