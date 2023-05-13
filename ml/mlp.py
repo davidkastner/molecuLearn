@@ -1,3 +1,5 @@
+"""Functions for the multi-layer perceptron classifier."""
+
 import numpy as np
 import pandas as pd
 from sklearn.metrics import confusion_matrix, roc_curve, auc
