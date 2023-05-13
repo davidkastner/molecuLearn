@@ -1,7 +1,7 @@
+"""Functions for the random forest classifier."""
+
 import numpy as np
 import sys
-
-np.set_printoptions(threshold=sys.maxsize)
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix, roc_curve, auc
@@ -14,6 +14,7 @@ from statistics import mean
 from itertools import cycle
 import shap
 import ml.lime_utils
+np.set_printoptions(threshold=sys.maxsize)
 
 
 def load_data(mimos, data_loc):
