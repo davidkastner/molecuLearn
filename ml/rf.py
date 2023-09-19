@@ -41,7 +41,8 @@ def load_data(mimos, data_loc):
     # Iterate through each mimo in the list
     for mimo in mimos:
         # Load charge and distance data from CSV files and store them in dictionaries
-        df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_esp.csv")
+        # df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charge_esp.csv")
+        df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charges_pairwise_multiply.csv")
         df_charge[mimo] = df_charge[mimo].drop(columns=["replicate"])
         df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distance.csv")
         df_dist[mimo] = df_dist[mimo].drop(columns=["replicate"])
@@ -85,20 +86,6 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.8):
     trajectories is based on the provided fractional parameter.
 
     """
-    # From df_dist, drop any distances between amino acids if either one of them has the mutants Glu3, Aib20, or Aib23.
-    for mimo in mimos:
-        if mimo == "mc6":
-            df_dist[mimo] = df_dist[mimo].loc[
-                :, ~df_dist[mimo].columns.str.contains("GLU3|GLN20|SER23")
-            ]
-        elif mimo == "mc6s":
-            df_dist[mimo] = df_dist[mimo].loc[
-                :, ~df_dist[mimo].columns.str.contains("LEU3|GLN20|SER23")
-            ]
-        elif mimo == "mc6sa":
-            df_dist[mimo] = df_dist[mimo].loc[
-                :, ~df_dist[mimo].columns.str.contains("LEU3|AIB20|AIB23")
-            ]
 
     class_assignment = {"mc6": 0, "mc6s": 1, "mc6sa": 2}
     features = ["dist", "charge"]

@@ -418,7 +418,7 @@ def xyz2pdb_traj() -> None:
     )
 
 
-def pairwise_distances_csv(pdb_traj_path, output_file, replicate_info):
+def pairwise_distances_csv(pdb_traj_path, output_file, replicate_info, remove=[]):
     """
     Calculate pairwise distances between residue centers of mass and save the result to a CSV file.
 
@@ -428,6 +428,8 @@ def pairwise_distances_csv(pdb_traj_path, output_file, replicate_info):
         The file path of the PDB trajectory file.
     output_file : str
         The name of the output CSV file.
+    remove : list of ints
+        A list of integars corresponding to residues indexed at zero to drop
     """
 
     start_time = time.time()  # Used to report the executation speed
@@ -444,14 +446,20 @@ def pairwise_distances_csv(pdb_traj_path, output_file, replicate_info):
     residue_names = [
         residue.resname + str(residue.resid) for residue in universes[0].residues
     ]
+    
+    # Filter out residues that user wants to remove
+    for idx in sorted(remove, reverse=True):
+        del residue_names[idx]
+
+    # Regenerate column names based on filtered residue pairs
     residue_pairs = list(combinations(residue_names, 2))
     column_names = [f"{pair[0]}-{pair[1]}" for pair in residue_pairs]
 
     pairwise_distances = []
     for universe in universes:
-        # Calculate the center of mass for each residue
+        # Calculate the center of mass for each residue, skipping the residues to remove
         residue_com = np.array(
-            [residue.atoms.center_of_mass() for residue in universe.residues]
+            [residue.atoms.center_of_mass() for i, residue in enumerate(universe.residues) if i not in remove]
         )
 
         # Calculate the pairwise distance matrix
@@ -478,11 +486,12 @@ def pairwise_distances_csv(pdb_traj_path, output_file, replicate_info):
     pairwise_distances_df = pd.concat([pairwise_distances_df, replicate_col], axis=1)
     pairwise_distances_df.to_csv(output_file, index=False)
 
+    num_pairwise_distances = (pairwise_distances_df.shape[1] - 1)
     total_time = round(time.time() - start_time, 3)  # Seconds to run the function
     print(
         f"""
         \t----------------------------ALL RUNS END----------------------------
-        \tRESULT: Created pairwise distance data set from xyz's.
+        \tRESULT: Created {num_pairwise_distances} pairwise distance data set from xyz's.
         \tOUTPUT: Save pairwise distance data to {output_file}.
         \tTIME: Total execution time: {total_time} seconds.
         \t--------------------------------------------------------------------\n
@@ -522,9 +531,7 @@ def pairwise_charge_features(structure, input_file):
     replicate = df.pop("replicate")
 
     # Prompt the user for the desired operation
-    operation = input(
-        "Operation for pairwise charge features Add (a) or Multiply (m)? "
-    )
+    operation = input("Operation for pairwise charges Add (a) or Multiply (m)? ")
 
     # Generate pairwise charge features
     feature_columns = df.columns
@@ -879,7 +886,7 @@ def add_esp_charges(charges_df, esp_scheme, geometry_name):
 
     # Add the "replicates" column back to charges_df
     charges_df["replicate"] = replicates_column
-    charges_df.to_csv(f"{geometry_name}_esp_ml.csv", index=False)
+    charges_df.to_csv(f"{geometry_name}_charge_esp_ml.csv", index=False)
 
     return charges_df
 

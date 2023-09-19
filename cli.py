@@ -18,7 +18,7 @@ import click
 @click.option("--pairwise_charge_features", "-pq", is_flag=True, help="Create pairwise charge features.")
 @click.option("--final_charge_dataset", "-fq", is_flag=True, help="Calculate final charge datasest.")
 @click.option("--calc_esp", "-ce", is_flag=True, help="Calculates ESP from Multiwfn output.")
-@click.option("--esp_dataset", "-esp", is_flag=True, help="Creates dataset with ESP features.")
+@click.option("--charge_esp_dataset", "-qed", is_flag=True, help="Creates dataset with ESP features.")
 @click.option("--random_forest", "-rf", is_flag=True, help="Run RF workflow.")
 @click.option("--mlp", "-mlp", is_flag=True, help="Run MLP workflow.")
 def cli(
@@ -27,7 +27,7 @@ def cli(
     final_charge_dataset,
     pairwise_charge_features,
     calc_esp,
-    esp_dataset,
+    charge_esp_dataset,
     random_forest,
     mlp,
     ):
@@ -57,8 +57,11 @@ def cli(
         geometry_name = os.getcwd().split("/")[-1]
         infile = f"{geometry_name}_geometry.pdb"
         outfile = f"{geometry_name}_pairwise_distance.csv"
+        mutations = [2,19,22]
+        caps = [0,15,16,27]
+        remove = sorted(mutations + caps)
         ml.process.check_file_exists(f"{geometry_name}_geometry.pdb")
-        ml.process.pairwise_distances_csv(infile, outfile, replicate_info)
+        ml.process.pairwise_distances_csv(infile, outfile, replicate_info, remove)
 
     elif combine_qm_charges:
         click.echo("> Combining the QM charge data across single points:")
@@ -80,7 +83,7 @@ def cli(
 
         # Remove non-shared amino acids and caps
         mutations = [2,19,22]
-        caps = [1,16,17,28]
+        caps = [0,15,16,27]
         remove = sorted(mutations + caps)
         charges_df = ml.process.final_charge_dataset("all_charges.xls", "template.pdb", remove)
 
@@ -90,6 +93,7 @@ def cli(
         import ml.process
         
         mimochrome_name = os.getcwd().split("/")[-1]
+        # mimochrome_name = input("> Which mimochrome to process? ")
         input_file = f"{mimochrome_name}_charges_ml.csv"
         ml.process.pairwise_charge_features(mimochrome_name, input_file)
 
@@ -102,14 +106,14 @@ def cli(
         step = 100
         ml.process.collect_esp_components(first, last, step)
 
-    elif esp_dataset:
+    elif charge_esp_dataset:
         click.echo("> Create a charge dataset that contains ESP-derived features:")
         click.echo("> Loading...")
         import ml.process
 
-        # Remove non-shared amino acids and terminal caps
+        # Remove non-shared amino acids and terminal caps (zero index)
         mutations = [2,19,22]
-        caps = [1,16,17,28]
+        caps = [0,15,16,27]
         remove = sorted(mutations + caps)
 
         geometry_name = os.getcwd().split("/")[-1]
