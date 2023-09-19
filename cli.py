@@ -45,7 +45,6 @@ def cli(
         click.echo("> Compute pairwise distances workflow:")
         click.echo("> Loading...")
         import ml.process
-        import ml.manage
         
         click.echo("   > Combine the xyz files from all the single points:")
         replicate_info = ml.process.combine_sp_xyz()
@@ -57,7 +56,7 @@ def cli(
         geometry_name = os.getcwd().split("/")[-1]
         infile = f"{geometry_name}_geometry.pdb"
         outfile = f"{geometry_name}_pairwise_distance.csv"
-        ml.manage.check_file_exists(f"{geometry_name}_geometry.pdb")
+        ml.process.check_file_exists(f"{geometry_name}_geometry.pdb")
         ml.process.pairwise_distances_csv(infile, outfile, replicate_info)
 
     elif combine_qm_charges:
