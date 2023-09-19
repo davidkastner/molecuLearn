@@ -12,6 +12,8 @@ import os
 import shutil
 import click
 
+data_split_type = 1
+
 @click.command()
 @click.option("--pairwise_distances", "-pd", is_flag=True, help="Compute pairwise distances.")
 @click.option("--combine_qm_charges", "-cq", is_flag=True, help="Combine charge data across QM single points.")
@@ -137,7 +139,6 @@ def cli(
 
         # Preprocess the data and split into train and test sets
         # Integers 1 (each traj as train/val/test) or 2 (split the entire dataset)
-        data_split_type = 1
         data_split, df_dist, df_charge = ml.rf.preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.875)
         # data_split, df_dist, df_charge = ml.rf.preprocess_data(df_charge, df_dist, mimos, data_split_type)
 
@@ -176,7 +177,6 @@ def cli(
 
         # Preprocess the data and split into train, validation, and test sets
         # Integers 1 (each traj as train/val/test) or 2 (split the entire dataset)
-        data_split_type = 1
         data_split, df_dist, df_charge = ml.mlp.preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.75, test_frac=0.875)
         # data_split, df_dist, df_charge = ml.mlp.preprocess_data(df_charge, df_dist, mimos, data_split_type)
 

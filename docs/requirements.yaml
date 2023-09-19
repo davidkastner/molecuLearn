@@ -17,6 +17,6 @@ dependencies:
     - scikit-learn
     - seaborn
     - shap
-    - sphinx==6.0.0
+    - sphinx_rtd_theme==1.1.1
     - sphinx-autoapi
-    - https://github.com/revitron/revitron-sphinx-theme/archive/master.zip
+    - https://github.com/revitron/revitron-sphinx-theme/archive/refs/tags/0.7.0.zip

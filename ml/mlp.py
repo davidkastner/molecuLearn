@@ -596,8 +596,10 @@ def plot_data(df_charge, df_dist, mimos):
 
     # Apply tight layout and show the plot
     fig.tight_layout()
-    plt.savefig("mlp_data.png", bbox_inches="tight", format="png", dpi=300)
-    plt.show()
+    extensions = ["svg", "png"]
+    for ext in extensions:
+        plt.savefig(f"mlp_data.{ext}", bbox_inches="tight", format=ext, dpi=300)
+        plt.show()
 
 
 def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
@@ -628,8 +630,10 @@ def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
 
     # Apply tight layout and show the plot
     fig.tight_layout()
-    plt.savefig("mlp_loss_v_epoch.png", bbox_inches="tight", format="png", dpi=300)
-    plt.show()
+    extensions = ["svg", "png"]
+    for ext in extensions:
+        plt.savefig(f"mlp_loss_v_epoch.{ext}", bbox_inches="tight", format=ext, dpi=300)
+        plt.show()
 
 
 def plot_roc_curve(y_true, y_pred_proba, mimos):
@@ -683,10 +687,10 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
             "Multi-class classification ROC for %s features" % feature, weight="bold"
         )
         plt.legend(loc="best")
-        plt.savefig(
-            "mlp_roc_" + feature + ".png", bbox_inches="tight", format="png", dpi=300
-        )
-        plt.show()
+        extensions = ["svg", "png"]
+        for ext in extensions:
+            plt.savefig("mlp_roc_" + feature + f".{ext}", bbox_inches="tight", format=ext, dpi=300)
+            plt.show()
 
 
 def plot_confusion_matrices(cms, mimos):
@@ -722,8 +726,10 @@ def plot_confusion_matrices(cms, mimos):
 
     # Apply tight layout and save the plotted confusion matrices
     fig.tight_layout()
-    plt.savefig("mlp_cm.png", bbox_inches="tight", format="png", dpi=300)
-    plt.show()
+    extensions = ["svg", "png"]
+    for ext in extensions:
+        plt.savefig(f"mlp_cm.{ext}", bbox_inches="tight", format=ext, dpi=300)
+        plt.show()
 
 
 def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
@@ -775,10 +781,10 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
                 show=False,
             )
             axs[j].set_title(f"{features[j]}, {mimos[i]}", fontweight="bold")
-        plt.savefig(
-            f"mlp_shap_{mimos[i]}.png", bbox_inches="tight", format="png", dpi=300
-        )
-        plt.show()
+        extensions = ["svg", "png"]
+        for ext in extensions:
+            plt.savefig(f"mlp_shap_{mimos[i]}.{ext}", bbox_inches="tight", format=ext, dpi=300)
+            plt.show()
 
     # Get the summary SHAP plots that combine feature importance for all classes
     fig, axs = plt.subplots(1, 2, figsize=(15, 5))
@@ -796,8 +802,10 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
         axs[j].set_title(f"{feature}", fontweight="bold")
     ext = "png"
     file_name = "mlp_shap_combined"
-    plt.savefig(f"{file_name}.{ext}", bbox_inches="tight", format=ext, dpi=300)
-    plt.show()
+    extensions = ["svg", "png"]
+    for ext in extensions:
+        plt.savefig(f"{file_name}.{ext}", bbox_inches="tight", format=ext, dpi=300)
+        plt.show()
 
 
 def format_plots() -> None:

@@ -363,8 +363,10 @@ def plot_data(df_charge, df_dist, mimos):
 
     # Apply tight layout and show the plot
     fig.tight_layout()
-    plt.savefig("rf_data.png", bbox_inches="tight", format="png", dpi=300)
-    plt.close()
+    extensions = ["svg", "png"]
+    for ext in extensions:
+        plt.savefig(f"rf_data.{ext}", bbox_inches="tight", format=ext, dpi=300)
+        plt.close()
 
 
 def plot_roc_curve(y_true, y_pred_proba, mimos):
@@ -417,10 +419,10 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
             "Multi-class classification ROC for %s features" % feature, weight="bold"
         )
         plt.legend(loc="best")
-        plt.savefig(
-            "rf_roc_" + feature + ".png", bbox_inches="tight", format="png", dpi=300
-        )
-        plt.close()
+        extensions = ["svg", "png"]
+        for ext in extensions:
+            plt.savefig("rf_roc_" + feature + f".{ext}", bbox_inches="tight", format=ext, dpi=300)
+            plt.close()
 
 
 def plot_confusion_matrices(cms, mimos):
@@ -455,8 +457,10 @@ def plot_confusion_matrices(cms, mimos):
 
     # Apply tight layout and save the plotted confusion matrices
     fig.tight_layout()
-    plt.savefig("rf_cm.png", bbox_inches="tight", format="png", dpi=300)
-    plt.close()
+    extensions = ["svg", "png"]
+    for ext in extensions:
+        plt.savefig(f"rf_cm.{ext}", bbox_inches="tight", format=ext, dpi=300)
+        plt.close()
 
 
 def shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos):
@@ -508,10 +512,10 @@ def shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos):
                 show=False,
             )
             axs[j].set_title(f"{features[j]}, {mimos[i]}", fontweight="bold")
-        plt.savefig(
-            f"rf_shap_{mimos[i]}.png", bbox_inches="tight", format="png", dpi=300
-        )
-        plt.close()
+        extensions = ["svg", "png"]
+        for ext in extensions:
+            plt.savefig(f"rf_shap_{mimos[i]}.{ext}", bbox_inches="tight", format=ext, dpi=300)
+            plt.close()
 
     # Get the summary SHAP plots that combine feature importance for all classes
     fig, axs = plt.subplots(1, 2, figsize=(15, 5))
@@ -527,8 +531,10 @@ def shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos):
             class_names=mimos,
         )
         axs[j].set_title(f"{feature}", fontweight="bold")
-    plt.savefig(f"rf_shap_combined.png", bbox_inches="tight", format="png", dpi=300)
-    plt.close()
+    extensions = ["svg", "png"]
+    for ext in extensions:
+        plt.savefig(f"rf_shap_combined.{ext}", bbox_inches="tight", format=ext, dpi=300)
+        plt.close()
 
 
 def plot_gini_importance(rf_cls, df_dist, df_charge):
@@ -578,8 +584,10 @@ def plot_gini_importance(rf_cls, df_dist, df_charge):
             weight="bold",
         )
         axs[i].tick_params(axis="x", rotation=90)
-    plt.savefig(f"rf_gini.png", bbox_inches="tight", format="png", dpi=300)
-    plt.close()
+    extensions = ["svg", "png"]
+    for ext in extensions:
+        plt.savefig(f"rf_gini.{ext}", bbox_inches="tight", format=ext, dpi=300)
+        plt.close()
 
 
 def format_plots() -> None:
