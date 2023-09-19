@@ -14,6 +14,37 @@ import torch
 from itertools import cycle
 import shap
 
+def load_data(mimos, data_loc):
+    """
+    Load data from CSV files for each mimo in the given list.
+
+    Parameters
+    ----------
+    mimos : list[str]
+        List of mimo names.
+    data_loc : str
+        The location of the (e.g, /home/kastner/packages/molecuLearn/ml/data)
+
+    Returns
+    -------
+    df_charge : dict
+        Dict with mimo names as keys and charge data as values
+    df_dist : dict
+        Dict with mimo names as keys and distance data as values
+    """
+
+    df_charge = {}
+    df_dist = {}
+
+    # Iterate through each mimo in the list
+    for mimo in mimos:
+        # Load charge and distance data from CSV files and store them in dictionaries
+        df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_esp.csv")
+        df_charge[mimo] = df_charge[mimo].drop(columns=["replicate"])
+        df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distance.csv")
+        df_dist[mimo] = df_dist[mimo].drop(columns=["replicate"])
+
+    return df_charge, df_dist
 
 def gradient_step(model, dataloader, optimizer, device):
     """
@@ -136,7 +167,7 @@ def train(layers, learning_rate, n_epochs, train_dataloader, val_dataloader, dev
     # Train MLP classifiers for each feature
     for feature in features:
         print("Training MLP for " + feature + " features:")
-        print("epoch", "train loss", "validation loss")
+        print("epoch", "train-loss", "validation-loss")
         val_losses = []
         train_losses = []
         model = MimoMLP(layers[feature]).to(device)
@@ -250,39 +281,6 @@ class MimoMLP(torch.nn.Module):
 
     def forward(self, x):
         return self.model(x)
-
-
-def load_data(mimos, data_loc):
-    """
-    Load data from CSV files for each mimo in the given list.
-
-    Parameters
-    ----------
-    mimos : list[str]
-        List of mimo names.
-    data_loc : str
-        The location of the (e.g, /home/kastner/packages/molecuLearn/ml/data)
-
-    Returns
-    -------
-    df_charge : dict
-        Dict with mimo names as keys and charge data as values
-    df_dist : dict
-        Dict with mimo names as keys and distance data as values
-    """
-
-    df_charge = {}
-    df_dist = {}
-
-    # Iterate through each mimo in the list
-    for mimo in mimos:
-        # Load charge and distance data from CSV files and store them in dictionaries
-        df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charges_esp.csv")
-        df_charge[mimo] = df_charge[mimo].drop(columns=["replicate"])
-        df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distance_v2.csv")
-        df_dist[mimo] = df_dist[mimo].drop(columns=["replicate"])
-
-    return df_charge, df_dist
 
 
 def preprocess_data(

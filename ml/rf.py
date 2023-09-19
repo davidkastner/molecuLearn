@@ -41,9 +41,9 @@ def load_data(mimos, data_loc):
     # Iterate through each mimo in the list
     for mimo in mimos:
         # Load charge and distance data from CSV files and store them in dictionaries
-        df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charges_esp.csv")
+        df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_esp.csv")
         df_charge[mimo] = df_charge[mimo].drop(columns=["replicate"])
-        df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distance_v2.csv")
+        df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distance.csv")
         df_dist[mimo] = df_dist[mimo].drop(columns=["replicate"])
 
     return df_charge, df_dist

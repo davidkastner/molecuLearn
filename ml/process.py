@@ -490,7 +490,7 @@ def pairwise_distances_csv(pdb_traj_path, output_file, replicate_info):
     )
 
 
-def pairwise_charge_features(structure):
+def pairwise_charge_features(structure, input_file):
     """
     Generate pairwise charge features for a given metalloenzyme structure.
 
@@ -516,7 +516,6 @@ def pairwise_charge_features(structure):
 
     """
     # Load the data
-    input_file = f"{structure}_charges.csv"
     df = pd.read_csv(input_file)
 
     # Remove the "replicate" column and store it separately
@@ -524,7 +523,7 @@ def pairwise_charge_features(structure):
 
     # Prompt the user for the desired operation
     operation = input(
-        "Choose an operation for pairwise charge features (add/multiply): "
+        "Operation for pairwise charge features Add (a) or Multiply (m)? "
     )
 
     # Generate pairwise charge features
@@ -536,11 +535,11 @@ def pairwise_charge_features(structure):
                 continue
 
             # Perform the specified operation
-            if operation == "add":
+            if operation == "a":
                 new_features.append(
                     pd.DataFrame({f"{col1}-{col2}": df[col1] + df[col2]})
                 )
-            elif operation == "multiply":
+            elif operation == "m":
                 new_features.append(
                     pd.DataFrame({f"{col1}-{col2}": df[col1] * df[col2]})
                 )
@@ -554,6 +553,7 @@ def pairwise_charge_features(structure):
     df = pd.concat([df, replicate], axis=1)
 
     # Save the results as a new CSV
+    operation = {"a": "add", "m": "multiply"}.get(operation, operation)
     output_file = f"{structure}_charges_pairwise_{operation}.csv"
     df.to_csv(output_file, index=False)
 
@@ -666,7 +666,7 @@ def final_charge_dataset(
 
     # Save the individual dataframe to a CSV file
     geometry_name = os.getcwd().split("/")[-1]
-    output_file = f"{geometry_name}_charges.csv"
+    output_file = f"{geometry_name}_charges_ml.csv"
     charges_df.to_csv(output_file, index=False)
     print(f"   > Saved {output_file}.")
 
@@ -879,7 +879,7 @@ def add_esp_charges(charges_df, esp_scheme, geometry_name):
 
     # Add the "replicates" column back to charges_df
     charges_df["replicate"] = replicates_column
-    charges_df.to_csv(f"{geometry_name}_charges_esp.csv", index=False)
+    charges_df.to_csv(f"{geometry_name}_esp_ml.csv", index=False)
 
     return charges_df
 

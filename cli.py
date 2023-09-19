@@ -9,6 +9,7 @@ print("GitHub: https://github.com/davidkastner/moleculearn")
 print("Documenation: https://moleculearn.readthedocs.io\n")
 
 import os
+import shutil
 import click
 
 @click.command()
@@ -77,17 +78,20 @@ def cli(
         click.echo("> Loading...")
         import ml.process
 
-        # Remove non-shared amino acids
+        # Remove non-shared amino acids and caps
         mutations = [2,19,22]
-        charges_df = ml.process.final_charge_dataset("all_charges.xls", "template.pdb", mutations)
+        caps = [1,16,17,28]
+        remove = sorted(mutations + caps)
+        charges_df = ml.process.final_charge_dataset("all_charges.xls", "template.pdb", remove)
 
     elif pairwise_charge_features:
         click.echo("> Generate pairwise charge data:")
         click.echo("> Loading...")
         import ml.process
         
-        structure = input("What is your structure? ")
-        ml.process.pairwise_charge_features(structure)
+        mimochrome_name = os.getcwd().split("/")[-1]
+        input_file = f"{mimochrome_name}_charges_ml.csv"
+        ml.process.pairwise_charge_features(mimochrome_name, input_file)
 
     elif calc_esp:
         click.echo("> Computed charge schemes with Multiwfn:")
@@ -103,14 +107,14 @@ def cli(
         click.echo("> Loading...")
         import ml.process
 
-        geometry_name = os.getcwd().split("/")[-1]
-        # Combine charges from the replicates
-        ml.process.combine_qm_replicates()
-        # Remove non-shared amino acids
+        # Remove non-shared amino acids and terminal caps
         mutations = [2,19,22]
-        charges_df = ml.process.final_charge_dataset("all_charges.xls", "template.pdb", mutations)
-        # Add ESP features into the data set
-        esp_scheme = input("What ESP scheme would you like to add? ")
+        caps = [1,16,17,28]
+        remove = sorted(mutations + caps)
+
+        geometry_name = os.getcwd().split("/")[-1]
+        charges_df = ml.process.final_charge_dataset("all_charges.xls", "template.pdb", remove)
+        esp_scheme = input("> What ESP scheme would you like to add? ").capitalize()
         geometry_name = os.getcwd().split("/")[-1]
         ml.process.add_esp_charges(charges_df, esp_scheme, geometry_name)
 
@@ -123,7 +127,7 @@ def cli(
         # Get datasets
         ml.rf.format_plots()
         mimos = ['mc6', 'mc6s', 'mc6sa']
-        data_loc = input("   > Where are your data files located? ")
+        data_loc = input("   > Where are your data files located (enter for cwd)? ") or os.getcwd()
         df_charge, df_dist = ml.rf.load_data(mimos, data_loc)
         ml.rf.plot_data(df_charge, df_dist, mimos)
 
@@ -134,12 +138,23 @@ def cli(
         # Train a random forest classifier for each feature
         rf_cls = ml.rf.train_random_forest(data_split, n_trees=200, max_depth=50)
 
-        # Evaluate classifiers and plot confusion matrices, roc curves, SHAP dot plots and Gini importance bar plots
+        # Evaluate classifiers and generate plots
         cms,y_true, y_pred_proba = ml.rf.evaluate(rf_cls, data_split, mimos)
         ml.rf.plot_roc_curve(y_true, y_pred_proba, mimos)
         ml.rf.plot_confusion_matrices(cms, mimos)
         ml.rf.shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos)
         ml.rf.plot_gini_importance(rf_cls, df_dist, df_charge)
+
+        # Clean up the newly generated files
+        rf_dir = "RF"
+        # Create the "rf/" directory if it doesn't exist
+        if not os.path.exists(rf_dir):
+            os.makedirs(rf_dir)
+
+        # Move all files starting with "rf_" into the "rf/" directory
+        for file in os.listdir():
+            if file.startswith("rf_"):
+                shutil.move(file, os.path.join(rf_dir, file))
 
     elif mlp:
         click.echo("> Run MLP model on the cleaned data:")
@@ -149,7 +164,7 @@ def cli(
         # Get datasets
         ml.mlp.format_plots()
         mimos = ["mc6", "mc6s", "mc6sa"]
-        data_loc = input("   > Where are your data files located? ")
+        data_loc = input("   > Where are your data files located (enter for cwd)? ") or os.getcwd()
         df_charge, df_dist = ml.mlp.load_data(mimos, data_loc)
         ml.mlp.plot_data(df_charge, df_dist, mimos)
 
@@ -182,6 +197,17 @@ def cli(
         ml.mlp.plot_roc_curve(y_true, y_pred_proba, mimos)
         ml.mlp.plot_confusion_matrices(cms, mimos)
         ml.mlp.shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos)
+
+        # Clean up the newly generated files
+        mlp_dir = "MLP"
+        # Create the "rf/" directory if it doesn't exist
+        if not os.path.exists(mlp_dir):
+            os.makedirs(mlp_dir)
+
+        # Move all files starting with "rf_" into the "rf/" directory
+        for file in os.listdir():
+            if file.startswith("mlp_"):
+                shutil.move(file, os.path.join(mlp_dir, file))
 
 
     else:
