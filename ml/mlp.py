@@ -37,7 +37,7 @@ def load_data(mimos, data_loc):
     df_dist = {}
 
     # Would you like the pairwise charges included as features?
-    include_pairwise_charges = True
+    include_pairwise_charges = False
 
     # Iterate through each mimo in the list
     for mimo in mimos:
@@ -179,8 +179,10 @@ def train(layers, learning_rate, n_epochs, train_dataloader, val_dataloader, dev
 
     # Train MLP classifiers for each feature
     for feature in features:
-        print("Training MLP for " + feature + " features:")
-        print("epoch", "train-loss", "validation-loss")
+        print("> Training MLP for " + feature + " features:\n")
+        print("+-------+------------+----------+")
+        print("| Epoch | Train-loss | Val-loss |")
+        print("+-------+------------+----------+")
         val_losses = []
         train_losses = []
         model = MimoMLP(layers[feature]).to(device)
@@ -197,8 +199,7 @@ def train(layers, learning_rate, n_epochs, train_dataloader, val_dataloader, dev
             # Record train and loss performance
             train_losses.append(epoch_loss)
             val_losses.append(val_loss)
-
-            print(epoch, epoch_loss, val_loss)
+            print(f" {epoch:.4f}     {epoch_loss:.4f}      {val_loss:.4f}")
 
         mlp_cls[feature] = model
         train_loss_per_epoch[feature] = train_losses
@@ -311,7 +312,7 @@ def preprocess_data(
     mimos : list of str
         List of mimo names.
     data_split_type : int
-        Int 1 (each trajectory into train/val/test) or 2 (split the entire)
+        Integers 1 (each traj as train/val/test) or 2 (split the entire dataset)
     val_frac : float, optional, default: 0.6
         Fraction of data to use for training (rest for val and test)
     test_frac : float, optional, default: 0.8

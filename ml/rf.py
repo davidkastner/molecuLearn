@@ -39,7 +39,7 @@ def load_data(mimos, data_loc):
     df_dist = {}
 
     # Would you like the pairwise charges included as features?
-    include_pairwise_charges = True
+    include_pairwise_charges = False
 
     # Iterate through each mimo in the list
     for mimo in mimos:
