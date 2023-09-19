@@ -499,7 +499,7 @@ def pairwise_distances_csv(pdb_traj_path, output_file, replicate_info, remove=[]
     )
 
 
-def pairwise_charge_features(structure, input_file):
+def pairwise_charge_features(structure, charge_data):
     """
     Generate pairwise charge features for a given metalloenzyme structure.
 
@@ -525,7 +525,7 @@ def pairwise_charge_features(structure, input_file):
 
     """
     # Load the data
-    df = pd.read_csv(input_file)
+    df = pd.read_csv(charge_data)
 
     # Remove the "replicate" column and store it separately
     replicate = df.pop("replicate")
@@ -554,17 +554,17 @@ def pairwise_charge_features(structure, input_file):
                 raise ValueError("Invalid operation. Choose 'add' or 'multiply'.")
 
     # Concatenate the original DataFrame and new DataFrame
-    df = pd.concat([df] + new_features, axis=1)
+    charge_pairs_df = pd.concat(new_features, axis=1)
 
     # Add the "replicate" column back in as the final column
-    df = pd.concat([df, replicate], axis=1)
+    charge_pairs_df = pd.concat([charge_pairs_df, replicate], axis=1)
 
     # Save the results as a new CSV
     operation = {"a": "add", "m": "multiply"}.get(operation, operation)
     output_file = f"{structure}_charges_pairwise_{operation}.csv"
-    df.to_csv(output_file, index=False)
+    charge_pairs_df.to_csv(output_file, index=False)
 
-    return df
+    return charge_pairs_df
 
 
 def get_residue_identifiers(template, by_atom=True) -> List[str]:

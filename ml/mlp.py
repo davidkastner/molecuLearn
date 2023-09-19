@@ -36,15 +36,28 @@ def load_data(mimos, data_loc):
     df_charge = {}
     df_dist = {}
 
+    # Would you like the pairwise charges included as features?
+    include_pairwise_charges = True
+
     # Iterate through each mimo in the list
     for mimo in mimos:
-        # Load charge and distance data from CSV files and store them in dictionaries
+        # Load charge data from CSV file and store in dictionary
         df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charge_esp.csv")
         df_charge[mimo] = df_charge[mimo].drop(columns=["replicate"])
+
+        # Load distance data from CSV file and store in dictionary
         df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distance.csv")
         df_dist[mimo] = df_dist[mimo].drop(columns=["replicate"])
 
+        if include_pairwise_charges:
+            # Read in {mimo}_charges_pairwise_multiply.csv
+            df_pairwise_multiply = pd.read_csv(f"{data_loc}/{mimo}_charges_pairwise_multiply.csv")
+
+            # Combine it column-wise with the {mimo}_charge_esp.csv dataframe
+            df_charge[mimo] = pd.concat([df_charge[mimo], df_pairwise_multiply], axis=1)
+
     return df_charge, df_dist
+
 
 def gradient_step(model, dataloader, optimizer, device):
     """

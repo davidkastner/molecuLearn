@@ -94,8 +94,8 @@ def cli(
         
         mimochrome_name = os.getcwd().split("/")[-1]
         # mimochrome_name = input("> Which mimochrome to process? ")
-        input_file = f"{mimochrome_name}_charges_ml.csv"
-        ml.process.pairwise_charge_features(mimochrome_name, input_file)
+        charge_data = f"{mimochrome_name}_charges_ml.csv"
+        ml.process.pairwise_charge_features(mimochrome_name, charge_data)
 
     elif calc_esp:
         click.echo("> Computed charge schemes with Multiwfn:")
