@@ -133,7 +133,7 @@ def validate(model, dataloader, device):
     return loss
 
 
-def train(feature, layers, lr, n_epochs, l2, train_dataloader, val_dataloader, device):
+def train(layers, lr, n_epochs, l2, train_dataloader, val_dataloader, device):
     """
     A function to train and validate the model over all epochs.
 
@@ -165,39 +165,41 @@ def train(feature, layers, lr, n_epochs, l2, train_dataloader, val_dataloader, d
     mlp_cls = {}
     train_loss_per_epoch = {}
     val_loss_per_epoch = {}
+    features = ["dist", "charge"]
 
     # Train MLP classifiers for each feature
-    print("> Training MLP for " + feature + " features:\n")
-    print("+-------+------------+----------+")
-    print("| Epoch | Train-loss | Val-loss |")
-    print("+-------+------------+----------+")
+    for feature in features:
+        print("> Training MLP for " + feature + " features:\n")
+        print("+-------+------------+----------+")
+        print("| Epoch | Train-loss | Val-loss |")
+        print("+-------+------------+----------+")
 
-    val_losses = []
-    train_losses = []
-    model = MimoMLP(layers[feature]).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=l2)
-    for epoch in range(n_epochs):
-        # Train model on training data
-        epoch_loss = gradient_step(
-            model, train_dataloader[feature], optimizer, device=device
-        )
+        val_losses = []
+        train_losses = []
+        model = MimoMLP(layers[feature]).to(device)
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=l2)
+        for epoch in range(n_epochs):
+            # Train model on training data
+            epoch_loss = gradient_step(
+                model, train_dataloader[feature], optimizer, device=device
+            )
 
-        # Validate model on validation data
-        val_loss = validate(model, val_dataloader[feature], device=device)
+            # Validate model on validation data
+            val_loss = validate(model, val_dataloader[feature], device=device)
 
-        # Record train and loss performance
-        train_losses.append(epoch_loss)
-        val_losses.append(val_loss)
-        print(f" {epoch:.4f}     {epoch_loss:.4f}      {val_loss:.4f}")
+            # Record train and loss performance
+            train_losses.append(epoch_loss)
+            val_losses.append(val_loss)
+            print(f" {epoch:.4f}     {epoch_loss:.4f}      {val_loss:.4f}")
 
-    mlp_cls[feature] = model
-    train_loss_per_epoch[feature] = train_losses
-    val_loss_per_epoch[feature] = val_losses
+        mlp_cls[feature] = model
+        train_loss_per_epoch[feature] = train_losses
+        val_loss_per_epoch[feature] = val_losses
 
     return mlp_cls, train_loss_per_epoch, val_loss_per_epoch
 
 
-def evaluate_model(feature, mlp_cls, test_dataloader, device, mimos):
+def evaluate_model(mlp_cls, test_dataloader, device, mimos):
     """
     A function to evaluate the model on test data.
 
@@ -226,40 +228,42 @@ def evaluate_model(feature, mlp_cls, test_dataloader, device, mimos):
         Dict containing confusion matrices
     """
 
+    features = ["dist", "charge"]
     y_pred_proba = {}
     y_pred = {}
     y_true = {}
     test_loss = {}
     cms = {}
 
-    mlp_cls[feature].eval()
-    y_true_feature_specific = np.empty((0, 3))
-    y_pred_proba_feature_specific = np.empty((0, 3))
-    y_pred_feature_specific = np.empty(0)
-    losses = []
-    with torch.no_grad():
-        for batch in test_dataloader[feature]:
-            X, y = batch
-            X = X.to(device)
-            y = y.to(device)
-            logits = mlp_cls[feature](X)
-            losses.append(torch.nn.functional.cross_entropy(logits, y))
+    for feature in features:
+        mlp_cls[feature].eval()
+        y_true_feature_specific = np.empty((0, 3))
+        y_pred_proba_feature_specific = np.empty((0, 3))
+        y_pred_feature_specific = np.empty(0)
+        losses = []
+        with torch.no_grad():
+            for batch in test_dataloader[feature]:
+                X, y = batch
+                X = X.to(device)
+                y = y.to(device)
+                logits = mlp_cls[feature](X)
+                losses.append(torch.nn.functional.cross_entropy(logits, y))
 
-            y_true_feature_specific = np.vstack(
-                (y_true_feature_specific, y.detach().cpu().numpy())
-            )
-            y_proba = (
-                torch.nn.functional.softmax(logits, dim=1).detach().cpu().numpy()
-            )
-            y_pred_proba_feature_specific = np.vstack(
-                (y_pred_proba_feature_specific, y_proba)
-            )
-            y_pred_feature_specific = np.hstack(
-                (
-                    y_pred_feature_specific,
-                    logits.argmax(dim=1).detach().cpu().numpy(),
+                y_true_feature_specific = np.vstack(
+                    (y_true_feature_specific, y.detach().cpu().numpy())
                 )
-            )
+                y_proba = (
+                    torch.nn.functional.softmax(logits, dim=1).detach().cpu().numpy()
+                )
+                y_pred_proba_feature_specific = np.vstack(
+                    (y_pred_proba_feature_specific, y_proba)
+                )
+                y_pred_feature_specific = np.hstack(
+                    (
+                        y_pred_feature_specific,
+                        logits.argmax(dim=1).detach().cpu().numpy(),
+                    )
+                )
 
         y_pred_proba[feature] = y_pred_proba_feature_specific
         y_pred[feature] = y_pred_feature_specific
@@ -583,6 +587,7 @@ def plot_data(df_charge, df_dist, mimos):
     extensions = ["svg", "png"]
     for ext in extensions:
         plt.savefig(f"mlp_data.{ext}", bbox_inches="tight", format=ext, dpi=300)
+        plt.show()
 
 
 def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
@@ -615,6 +620,7 @@ def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
     extensions = ["svg", "png"]
     for ext in extensions:
         plt.savefig(f"mlp_loss_v_epoch.{ext}", bbox_inches="tight", format=ext, dpi=300)
+        plt.show()
 
 
 def plot_roc_curve(y_true, y_pred_proba, mimos):
@@ -670,6 +676,7 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
         extensions = ["svg", "png"]
         for ext in extensions:
             plt.savefig("mlp_roc_" + feature + f".{ext}", bbox_inches="tight", format=ext, dpi=300)
+            plt.show()
 
 
 def plot_confusion_matrices(cms, mimos):
@@ -707,6 +714,7 @@ def plot_confusion_matrices(cms, mimos):
     extensions = ["svg", "png"]
     for ext in extensions:
         plt.savefig(f"mlp_cm.{ext}", bbox_inches="tight", format=ext, dpi=300)
+        plt.show()
 
 
 def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
@@ -760,6 +768,7 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
         extensions = ["svg", "png"]
         for ext in extensions:
             plt.savefig(f"mlp_shap_{mimos[i]}.{ext}", bbox_inches="tight", format=ext, dpi=300)
+            plt.show()
 
     # Get the summary SHAP plots that combine feature importance for all classes
     fig, axs = plt.subplots(1, 2, figsize=(15, 5))
@@ -780,6 +789,7 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
     extensions = ["svg", "png"]
     for ext in extensions:
         plt.savefig(f"{file_name}.{ext}", bbox_inches="tight", format=ext, dpi=300)
+        plt.show()
 
 
 def format_plots() -> None:
@@ -821,13 +831,15 @@ def run_mlp(data_split_type):
     # Get datasets
     format_plots()
     mimos = ["mc6", "mc6s", "mc6sa"]
-    data_loc = os.getcwd()
+    data_loc = input("   > Where are your data files located (enter for cwd)? ") or os.getcwd()
     df_charge, df_dist = load_data(mimos, data_loc)
     plot_data(df_charge, df_dist, mimos)
 
     # Preprocess the data and split into train, validation, and test sets
-    data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type)
-    # data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.75, test_frac=0.875)
+    if data_split_type == 1:
+        data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type)
+    elif data_split_type == 2:
+        data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.75, test_frac=0.875)
 
     # Build the train, validation, and test dataloaders
     train_loader, val_loader, test_loader = build_dataloaders(data_split)
@@ -836,44 +848,27 @@ def run_mlp(data_split_type):
     n_dist = data_split['dist']['X_train'].shape[1]
     n_charge = data_split['charge']['X_train'].shape[1]
     
-    layers = {'dist': (torch.nn.Linear(n_dist, 33), torch.nn.ReLU(), 
-                    torch.nn.Linear(33, 33), torch.nn.ReLU(), 
-                    torch.nn.Linear(33, 33), torch.nn.ReLU(), 
-                    torch.nn.Linear(33, 3)),
-        'charge': (torch.nn.Linear(n_charge, 148), torch.nn.ReLU(), 
-                    torch.nn.Linear(148, 148), torch.nn.ReLU(), 
-                    torch.nn.Linear(148, 148), torch.nn.ReLU(), 
-                    torch.nn.Linear(148, 3))
+    # Hyperparameters
+    lr = 1e-3
+    n_epochs = 5
+    l2 = 0.001
+    layers = {'dist': (torch.nn.Linear(n_dist, 128), torch.nn.ReLU(), 
+                    torch.nn.Linear(128, 128), torch.nn.ReLU(), 
+                    torch.nn.Linear(128, 128), torch.nn.ReLU(), 
+                    torch.nn.Linear(128, 3)),
+        'charge': (torch.nn.Linear(n_charge, 128), torch.nn.ReLU(), 
+                    torch.nn.Linear(128, 128), torch.nn.ReLU(), 
+                    torch.nn.Linear(128, 128), torch.nn.ReLU(), 
+                    torch.nn.Linear(128, 3))
         }
-    
-    # Distance hyperparameters
-    lr = 1.72e-04
-    n_epochs = 50
-    l2 = 7.81e-05
-    mlp_cls_dist, train_loss_per_epoch_dist, val_loss_per_epoch_dist = train("dist", layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
 
-    # Charge hyperparameters
-    lr = 1.07e-04
-    n_epochs = 50
-    l2 = 0.0033
-    mlp_cls_charge, train_loss_per_epoch_charge, val_loss_per_epoch_charge = train("charge", layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
-
-
-    # Combine the results back together for efficient analysis
-    mlp_cls = {**mlp_cls_dist, **mlp_cls_charge}
-    train_loss_per_epoch = {**train_loss_per_epoch_dist, **train_loss_per_epoch_charge}
-    val_loss_per_epoch = {**val_loss_per_epoch_dist, **val_loss_per_epoch_charge}
+    # Train model on training and validation data
+    mlp_cls, train_loss_per_epoch, val_loss_per_epoch =train(layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
     plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch)
     
     # Evaluate model on test data
-    test_loss, y_true_dist, y_pred_proba_dist, y_pred, cms_dist = evaluate_model("dist", mlp_cls, test_loader, 'cpu', mimos)
-    test_loss, y_true_charge, y_pred_proba_charge, y_pred, cms_charge = evaluate_model("charge", mlp_cls, test_loader, 'cpu', mimos)
-
-    # Combine values back together
-    y_true = {**y_true_dist, **y_true_charge}
-    y_pred_proba = {**y_pred_proba_dist, **y_pred_proba_charge}
-    cms = {**cms_dist, **cms_charge}
-
+    test_loss, y_true, y_pred_proba, y_pred, cms = evaluate_model(mlp_cls, test_loader, 'cpu', mimos)
+ 
     # Plot ROC-AUC curves, confusion matrices and SHAP dot plots
     plot_roc_curve(y_true, y_pred_proba, mimos)
     plot_confusion_matrices(cms, mimos)
@@ -891,37 +886,42 @@ def run_mlp(data_split_type):
             shutil.move(file, os.path.join(mlp_dir, file))
 
 
-def train_with_hyperparameters(trial, feature, train_loader, val_loader, n_dist, n_charge):
+def train_with_hyperparameters(trial, train_loader, val_loader, n_dist, n_charge):
+    n_epochs = 10
     # Hyperparameters
-    n_epochs = 100
-    lr = trial.suggest_float('lr', 1e-6, 1e-2, log=True)  
-    l2 = trial.suggest_float('l2', 1e-6, 1e-2, log=True)  
-    n_layers = trial.suggest_int('n_layers', 2, 4)  # Number of hidden layers
-    n_neurons = trial.suggest_int('n_neurons', 32, 256)  # Neurons per layer
-    
-    n_input = {'dist': n_dist, 'charge': n_charge}
-    layers_list = [torch.nn.Linear(n_input[feature], n_neurons), torch.nn.ReLU()]
-    for _ in range(n_layers):
-        layers_list.extend([torch.nn.Linear(n_neurons, n_neurons), torch.nn.ReLU()])
-    layers_list.append(torch.nn.Linear(n_neurons, 3))  # Output layer
+    lr = trial.suggest_float('lr', 1e-5, 1e-1, log=True)  # Suggest values for learning rate
+    l2 = trial.suggest_float('l2', 1e-5, 1e-1, log=True)  # Suggest values for weight decay
 
-    layers = {feature: tuple(layers_list)}
+    # Define layers based on your existing setup. Modify if you want to include layer-related hyperparameters
+    layers = {
+        'dist': (torch.nn.Linear(n_dist, 128), torch.nn.ReLU(), 
+                torch.nn.Linear(128, 128), torch.nn.ReLU(), 
+                torch.nn.Linear(128, 128), torch.nn.ReLU(), 
+                torch.nn.Linear(128, 3)),
+        'charge': (torch.nn.Linear(n_charge, 128), torch.nn.ReLU(), 
+                torch.nn.Linear(128, 128), torch.nn.ReLU(), 
+                torch.nn.Linear(128, 128), torch.nn.ReLU(), 
+                torch.nn.Linear(128, 3))
+    }
 
-    mlp_cls, train_loss_per_epoch, val_loss_per_epoch = train(feature, layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
+    mlp_cls, train_loss_per_epoch, val_loss_per_epoch = train(layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
 
-    return val_loss_per_epoch[feature][-1]
+    return val_loss_per_epoch["dist"][-1]
 
 
-def optuna_mlp(data_split_type, n_trials):
+def optuna_mlp(data_split_type):
+
     # Get datasets
-    features = ["dist", "charge"]
+    format_plots()
     mimos = ["mc6", "mc6s", "mc6sa"]
-    data_loc = os.getcwd()
+    data_loc = input("   > Where are your data files located (enter for cwd)? ") or os.getcwd()
     df_charge, df_dist = load_data(mimos, data_loc)
 
     # Preprocess the data and split into train, validation, and test sets
-    data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type)
-    # data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.75, test_frac=0.875)
+    if data_split_type == 1:
+        data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type)
+    elif data_split_type == 2:
+        data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.75, test_frac=0.875)
 
     # Build the train, validation, and test dataloaders
     train_loader, val_loader, test_loader = build_dataloaders(data_split)
@@ -929,22 +929,18 @@ def optuna_mlp(data_split_type, n_trials):
     # Get input sizes for each dataset and build model architectures
     n_dist = data_split['dist']['X_train'].shape[1]
     n_charge = data_split['charge']['X_train'].shape[1]
+    
+    study = optuna.create_study(direction='minimize')
+    study.optimize(lambda trial: train_with_hyperparameters(trial, train_loader, val_loader, n_dist, n_charge), n_trials=50)
+    
+    best_params = study.best_params
+    best_loss = study.best_value
 
-    filename = "mlp_hyperopt.txt"
-    with open(filename, 'w') as file:
-        for feature in features:
-            study = optuna.create_study(direction='minimize')
-            study.optimize(lambda trial: train_with_hyperparameters(trial, feature, train_loader, val_loader, n_dist, n_charge), n_trials)
-            
-            best_params = study.best_params
-            best_loss = study.best_value
-
-            print(f"Feature: {feature}", file=file)
-            print(f"Best parameters: {best_params}", file=file)
-            print(f"Best validation loss: {best_loss}\n", file=file)
+    print(f"Best parameters: {best_params}")
+    print(f"Best validation loss: {best_loss}")
 
 
 
 if __name__ == "__main__":
-    data_split_type = 1
-    optuna_mlp(data_split_type, 750)
+    data_split_type = 2
+    optuna_mlp(data_split_type)

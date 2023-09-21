@@ -583,6 +583,7 @@ def plot_data(df_charge, df_dist, mimos):
     extensions = ["svg", "png"]
     for ext in extensions:
         plt.savefig(f"mlp_data.{ext}", bbox_inches="tight", format=ext, dpi=300)
+        plt.show()
 
 
 def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
@@ -615,6 +616,7 @@ def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
     extensions = ["svg", "png"]
     for ext in extensions:
         plt.savefig(f"mlp_loss_v_epoch.{ext}", bbox_inches="tight", format=ext, dpi=300)
+        plt.show()
 
 
 def plot_roc_curve(y_true, y_pred_proba, mimos):
@@ -670,6 +672,7 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
         extensions = ["svg", "png"]
         for ext in extensions:
             plt.savefig("mlp_roc_" + feature + f".{ext}", bbox_inches="tight", format=ext, dpi=300)
+            plt.show()
 
 
 def plot_confusion_matrices(cms, mimos):
@@ -707,6 +710,7 @@ def plot_confusion_matrices(cms, mimos):
     extensions = ["svg", "png"]
     for ext in extensions:
         plt.savefig(f"mlp_cm.{ext}", bbox_inches="tight", format=ext, dpi=300)
+        plt.show()
 
 
 def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
@@ -760,6 +764,7 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
         extensions = ["svg", "png"]
         for ext in extensions:
             plt.savefig(f"mlp_shap_{mimos[i]}.{ext}", bbox_inches="tight", format=ext, dpi=300)
+            plt.show()
 
     # Get the summary SHAP plots that combine feature importance for all classes
     fig, axs = plt.subplots(1, 2, figsize=(15, 5))
@@ -780,6 +785,7 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
     extensions = ["svg", "png"]
     for ext in extensions:
         plt.savefig(f"{file_name}.{ext}", bbox_inches="tight", format=ext, dpi=300)
+        plt.show()
 
 
 def format_plots() -> None:
@@ -821,13 +827,15 @@ def run_mlp(data_split_type):
     # Get datasets
     format_plots()
     mimos = ["mc6", "mc6s", "mc6sa"]
-    data_loc = os.getcwd()
+    data_loc = input("   > Where are your data files located (enter for cwd)? ") or os.getcwd()
     df_charge, df_dist = load_data(mimos, data_loc)
     plot_data(df_charge, df_dist, mimos)
 
     # Preprocess the data and split into train, validation, and test sets
-    data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type)
-    # data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.75, test_frac=0.875)
+    if data_split_type == 1:
+        data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type)
+    elif data_split_type == 2:
+        data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.75, test_frac=0.875)
 
     # Build the train, validation, and test dataloaders
     train_loader, val_loader, test_loader = build_dataloaders(data_split)
@@ -836,26 +844,26 @@ def run_mlp(data_split_type):
     n_dist = data_split['dist']['X_train'].shape[1]
     n_charge = data_split['charge']['X_train'].shape[1]
     
-    layers = {'dist': (torch.nn.Linear(n_dist, 33), torch.nn.ReLU(), 
-                    torch.nn.Linear(33, 33), torch.nn.ReLU(), 
-                    torch.nn.Linear(33, 33), torch.nn.ReLU(), 
-                    torch.nn.Linear(33, 3)),
-        'charge': (torch.nn.Linear(n_charge, 148), torch.nn.ReLU(), 
-                    torch.nn.Linear(148, 148), torch.nn.ReLU(), 
-                    torch.nn.Linear(148, 148), torch.nn.ReLU(), 
-                    torch.nn.Linear(148, 3))
+    layers = {'dist': (torch.nn.Linear(n_dist, 128), torch.nn.ReLU(), 
+                    torch.nn.Linear(128, 128), torch.nn.ReLU(), 
+                    torch.nn.Linear(128, 128), torch.nn.ReLU(), 
+                    torch.nn.Linear(128, 3)),
+        'charge': (torch.nn.Linear(n_charge, 128), torch.nn.ReLU(), 
+                    torch.nn.Linear(128, 128), torch.nn.ReLU(), 
+                    torch.nn.Linear(128, 128), torch.nn.ReLU(), 
+                    torch.nn.Linear(128, 3))
         }
     
     # Distance hyperparameters
-    lr = 1.72e-04
-    n_epochs = 50
-    l2 = 7.81e-05
+    lr = 1e-3
+    n_epochs = 10
+    l2 = 0.001
     mlp_cls_dist, train_loss_per_epoch_dist, val_loss_per_epoch_dist = train("dist", layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
 
     # Charge hyperparameters
-    lr = 1.07e-04
-    n_epochs = 50
-    l2 = 0.0033
+    lr = 1e-3
+    n_epochs = 10
+    l2 = 0.001
     mlp_cls_charge, train_loss_per_epoch_charge, val_loss_per_epoch_charge = train("charge", layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
 
 
@@ -893,35 +901,39 @@ def run_mlp(data_split_type):
 
 def train_with_hyperparameters(trial, feature, train_loader, val_loader, n_dist, n_charge):
     # Hyperparameters
-    n_epochs = 100
-    lr = trial.suggest_float('lr', 1e-6, 1e-2, log=True)  
-    l2 = trial.suggest_float('l2', 1e-6, 1e-2, log=True)  
-    n_layers = trial.suggest_int('n_layers', 2, 4)  # Number of hidden layers
-    n_neurons = trial.suggest_int('n_neurons', 32, 256)  # Neurons per layer
-    
-    n_input = {'dist': n_dist, 'charge': n_charge}
-    layers_list = [torch.nn.Linear(n_input[feature], n_neurons), torch.nn.ReLU()]
-    for _ in range(n_layers):
-        layers_list.extend([torch.nn.Linear(n_neurons, n_neurons), torch.nn.ReLU()])
-    layers_list.append(torch.nn.Linear(n_neurons, 3))  # Output layer
+    n_epochs = 10
+    lr = trial.suggest_float('lr', 1e-5, 1e-1, log=True)  # Suggest values for learning rate
+    l2 = trial.suggest_float('l2', 1e-5, 1e-1, log=True)  # Suggest values for weight decay
 
-    layers = {feature: tuple(layers_list)}
+    # Define layers based on your existing setup. Modify if you want to include layer-related hyperparameters
+    layers = {
+        'dist': (torch.nn.Linear(n_dist, 128), torch.nn.ReLU(), 
+                torch.nn.Linear(128, 128), torch.nn.ReLU(), 
+                torch.nn.Linear(128, 128), torch.nn.ReLU(), 
+                torch.nn.Linear(128, 3)),
+        'charge': (torch.nn.Linear(n_charge, 128), torch.nn.ReLU(), 
+                torch.nn.Linear(128, 128), torch.nn.ReLU(), 
+                torch.nn.Linear(128, 128), torch.nn.ReLU(), 
+                torch.nn.Linear(128, 3))
+    }
 
     mlp_cls, train_loss_per_epoch, val_loss_per_epoch = train(feature, layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
 
     return val_loss_per_epoch[feature][-1]
 
 
-def optuna_mlp(data_split_type, n_trials):
+def optuna_mlp(data_split_type):
     # Get datasets
     features = ["dist", "charge"]
     mimos = ["mc6", "mc6s", "mc6sa"]
-    data_loc = os.getcwd()
+    data_loc = input("   > Where are your data files located (enter for cwd)? ") or os.getcwd()
     df_charge, df_dist = load_data(mimos, data_loc)
 
     # Preprocess the data and split into train, validation, and test sets
-    data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type)
-    # data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.75, test_frac=0.875)
+    if data_split_type == 1:
+        data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type)
+    elif data_split_type == 2:
+        data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.75, test_frac=0.875)
 
     # Build the train, validation, and test dataloaders
     train_loader, val_loader, test_loader = build_dataloaders(data_split)
@@ -930,11 +942,11 @@ def optuna_mlp(data_split_type, n_trials):
     n_dist = data_split['dist']['X_train'].shape[1]
     n_charge = data_split['charge']['X_train'].shape[1]
 
-    filename = "mlp_hyperopt.txt"
+    filename = "optuna_mlp_results.txt"
     with open(filename, 'w') as file:
         for feature in features:
             study = optuna.create_study(direction='minimize')
-            study.optimize(lambda trial: train_with_hyperparameters(trial, feature, train_loader, val_loader, n_dist, n_charge), n_trials)
+            study.optimize(lambda trial: train_with_hyperparameters(trial, feature, train_loader, val_loader, n_dist, n_charge), n_trials=5)
             
             best_params = study.best_params
             best_loss = study.best_value
@@ -946,5 +958,5 @@ def optuna_mlp(data_split_type, n_trials):
 
 
 if __name__ == "__main__":
-    data_split_type = 1
-    optuna_mlp(data_split_type, 750)
+    data_split_type = 2
+    optuna_mlp(data_split_type)
