@@ -1,18 +1,20 @@
 """Functions for the random forest classifier."""
 
-import numpy as np
+import os
 import sys
+import shap
+import shutil
+import numpy as np
 import pandas as pd
+import seaborn as sn
+from itertools import cycle
+from statistics import mean
+import matplotlib.pyplot as plt
+from sklearn.utils import shuffle
+from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix, roc_curve, auc
 from sklearn.preprocessing import StandardScaler, LabelBinarizer
-from sklearn.utils import shuffle
-from statistics import mean
-import matplotlib.pyplot as plt
-import seaborn as sn
-from statistics import mean
-from itertools import cycle
-import shap
 np.set_printoptions(threshold=sys.maxsize)
 
 
@@ -253,7 +255,7 @@ def preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.8):
     return data_split, df_dist, df_charge
 
 
-def train_random_forest(data_split, n_trees, max_depth):
+def train_random_forest(feature, data_split, n_estimators, max_depth, min_samples_split, min_samples_leaf):
     """
     Train random forest classifiers for the distance and charge features.
 
@@ -261,7 +263,7 @@ def train_random_forest(data_split, n_trees, max_depth):
     ----------
     data_split : dict
         Dictionary containing the training and testing data for distance and charge features.
-    n_trees : int
+    n_estimators : int
         Number of trees in the random forest.
     max_depth : int
         Maximum depth of the trees in the random forest.
@@ -273,16 +275,17 @@ def train_random_forest(data_split, n_trees, max_depth):
     
     """
     rf_cls = {}
-    features = ["dist", "charge"]
 
     # Train random forest classifiers for each feature
-    for feature in features:
-        rf_cls[feature] = RandomForestClassifier(
-            n_estimators=n_trees, max_depth=max_depth
-        )
-        rf_cls[feature].fit(
-            data_split[feature]["X_train"], data_split[feature]["y_train"]
-        )
+    rf_cls[feature] = RandomForestClassifier(
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        min_samples_split=min_samples_split,
+        min_samples_leaf=min_samples_leaf,
+    )
+    rf_cls[feature].fit(
+        data_split[feature]["X_train"], data_split[feature]["y_train"]
+    )
 
     return rf_cls
 
@@ -366,7 +369,6 @@ def plot_data(df_charge, df_dist, mimos):
     extensions = ["svg", "png"]
     for ext in extensions:
         plt.savefig(f"rf_data.{ext}", bbox_inches="tight", format=ext, dpi=300)
-        plt.close()
 
 
 def plot_roc_curve(y_true, y_pred_proba, mimos):
@@ -422,7 +424,6 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
         extensions = ["svg", "png"]
         for ext in extensions:
             plt.savefig("rf_roc_" + feature + f".{ext}", bbox_inches="tight", format=ext, dpi=300)
-            plt.close()
 
 
 def plot_confusion_matrices(cms, mimos):
@@ -460,7 +461,6 @@ def plot_confusion_matrices(cms, mimos):
     extensions = ["svg", "png"]
     for ext in extensions:
         plt.savefig(f"rf_cm.{ext}", bbox_inches="tight", format=ext, dpi=300)
-        plt.close()
 
 
 def shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos):
@@ -515,7 +515,6 @@ def shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos):
         extensions = ["svg", "png"]
         for ext in extensions:
             plt.savefig(f"rf_shap_{mimos[i]}.{ext}", bbox_inches="tight", format=ext, dpi=300)
-            plt.close()
 
     # Get the summary SHAP plots that combine feature importance for all classes
     fig, axs = plt.subplots(1, 2, figsize=(15, 5))
@@ -534,7 +533,6 @@ def shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos):
     extensions = ["svg", "png"]
     for ext in extensions:
         plt.savefig(f"rf_shap_combined.{ext}", bbox_inches="tight", format=ext, dpi=300)
-        plt.close()
 
 
 def plot_gini_importance(rf_cls, df_dist, df_charge):
@@ -587,7 +585,6 @@ def plot_gini_importance(rf_cls, df_dist, df_charge):
     extensions = ["svg", "png"]
     for ext in extensions:
         plt.savefig(f"rf_gini.{ext}", bbox_inches="tight", format=ext, dpi=300)
-        plt.close()
 
 
 def format_plots() -> None:
@@ -610,27 +607,91 @@ def format_plots() -> None:
     plt.rcParams["ytick.right"] = True
     plt.rcParams["svg.fonttype"] = "none"
 
-def rf_analysis():
+def rf_analysis(data_split_type):
     # Get datasets
     format_plots()
-    mimos = ["mc6", "mc6s", "mc6sa"]
-    data_loc = input("   > Where are your data files located? ")
+    mimos = ['mc6', 'mc6s', 'mc6sa']
+    data_loc = os.getcwd()
     df_charge, df_dist = load_data(mimos, data_loc)
     plot_data(df_charge, df_dist, mimos)
 
     # Preprocess the data and split into train and test sets
-    data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, 1)
+    data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type)
+    # data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.875)
 
-    # Train a random forest classifier for each feature
-    rf_cls = train_random_forest(data_split, n_trees=200, max_depth=50)
+    # Dist hyperparameters
+    n_estimators=50
+    max_depth=None
+    min_samples_split=2
+    min_samples_leaf=2
+    feature = "dist"
+    rf_cls_dist = train_random_forest(feature, data_split, n_estimators, max_depth, min_samples_split, min_samples_leaf)
 
-    # Evaluate classifiers and plot confusion matrices, roc curves, and SHAP dot plots and Gini importance bar plots
-    cms, y_true, y_pred_proba = evaluate(rf_cls, data_split, mimos)
+    # Charge hyperparameters
+    n_estimators=150
+    max_depth=35
+    min_samples_split=6
+    min_samples_leaf=2
+    feature = "charge"
+    rf_cls_charge = train_random_forest(feature, data_split, n_estimators, max_depth, min_samples_split, min_samples_leaf)
+
+    # Combine the results back together for efficient analysis
+    rf_cls = {**rf_cls_dist, **rf_cls_charge}
+
+    # Evaluate classifiers and generate plots
+    cms,y_true, y_pred_proba = evaluate(rf_cls, data_split, mimos)
     plot_roc_curve(y_true, y_pred_proba, mimos)
     plot_confusion_matrices(cms, mimos)
     shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos)
     plot_gini_importance(rf_cls, df_dist, df_charge)
 
+    # Clean up the newly generated files
+    rf_dir = "RF"
+    # Create the "rf/" directory if it doesn't exist
+    if not os.path.exists(rf_dir):
+        os.makedirs(rf_dir)
+
+    # Move all files starting with "rf_" into the "rf/" directory
+    for file in os.listdir():
+        if file.startswith("rf_"):
+            shutil.move(file, os.path.join(rf_dir, file))
+
+def train_random_forest_with_optimization(data_split, param_grid):
+    rf_cls = {}
+    features = ["dist", "charge"]
+
+    with open("rf_hyperopt.txt", "w") as f:
+        for feature in features:
+            rf = RandomForestClassifier()
+            grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, 
+                                       cv=3, verbose=2, n_jobs=48, scoring='accuracy')
+            grid_search.fit(data_split[feature]["X_train"], data_split[feature]["y_train"])
+            rf_cls[feature] = grid_search.best_estimator_
+            f.write(f"Best parameters for {feature} are: {grid_search.best_params_}\n")
+
+    return rf_cls
+
+def hyperparam_opt(data_split_type):
+    param_grid = {
+        'n_estimators': [50, 60, 75, 90, 100, 110, 125, 135, 150, 175, 190, 200, 210, 225],
+        'max_depth': [None, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
+        'min_samples_split': [3, 4, 5, 6, 7, 8, 10],
+        'min_samples_leaf': [3, 4, 6, 5, 7, 8, 10],
+    }
+
+    mimos = ['mc6', 'mc6s', 'mc6sa']
+    data_loc = os.getcwd()
+    df_charge, df_dist = load_data(mimos, data_loc)
+
+    # Preprocess the data and split into train and test sets
+    data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type)
+    # data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.875)
+
+    # Train a random forest classifier for each feature with hyperparameter optimization
+    train_random_forest_with_optimization(data_split, param_grid)
+
 
 if __name__ == "__main__":
-    rf_analysis()
+    data_split_type = 1
+    # rf_analysis(data_split_type)
+    hyperparam_opt(data_split_type)

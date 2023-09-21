@@ -3,24 +3,22 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.8
   - biopython
-  - black
-  - cookiecutter
   - click
-  - jupyterlab
-  - lime
   - matplotlib
   - mdanalysis
-  - numpy
+  - numpy=1.23.5
+  - optuna
   - pandas
   - pip
+  - python=3.8
   - pytorch
   - scikit-learn
   - scipy
   - seaborn
-  - shap
-  - sphinx-autoapi
-  - sphinx_rtd_theme
   - pip:
-    - https://github.com/revitron/revitron-sphinx-theme/archive/master.zip
+    - shap==0.42.1
+    - sphinx_rtd_theme==1.1.1
+    - sphinx-autoapi
+    - https://github.com/revitron/revitron-sphinx-theme/archive/refs/tags/0.7.0.zip
+    
