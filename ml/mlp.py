@@ -5,6 +5,7 @@ import shap
 import torch
 import optuna
 import shutil
+import argparse
 import numpy as np
 import pandas as pd
 import seaborn as sn
@@ -738,6 +739,10 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
         # Load in a random batch from the test dataloader and interpret predictions for 156 data points
         batch = next(iter(test_loader[feature]))
         data, _ = batch
+
+        # Print the number of data points
+        print(f"Number of data points in 'data': {data.shape[0]}")
+
         # Define the first 100 datapoints as the background used as reference when calculating SHAP values
         background = data[:100]
         test[feature] = data[100:]
@@ -836,26 +841,26 @@ def run_mlp(data_split_type):
     n_dist = data_split['dist']['X_train'].shape[1]
     n_charge = data_split['charge']['X_train'].shape[1]
     
-    layers = {'dist': (torch.nn.Linear(n_dist, 33), torch.nn.ReLU(), 
-                    torch.nn.Linear(33, 33), torch.nn.ReLU(), 
-                    torch.nn.Linear(33, 33), torch.nn.ReLU(), 
-                    torch.nn.Linear(33, 3)),
-        'charge': (torch.nn.Linear(n_charge, 148), torch.nn.ReLU(), 
-                    torch.nn.Linear(148, 148), torch.nn.ReLU(), 
-                    torch.nn.Linear(148, 148), torch.nn.ReLU(), 
-                    torch.nn.Linear(148, 3))
+    layers = {'dist': (torch.nn.Linear(n_dist, 73), torch.nn.ReLU(), 
+                    torch.nn.Linear(73, 73), torch.nn.ReLU(), 
+                    torch.nn.Linear(73, 73), torch.nn.ReLU(), 
+                    torch.nn.Linear(73, 3)),
+        'charge': (torch.nn.Linear(n_charge, 123), torch.nn.ReLU(), 
+                    torch.nn.Linear(123, 123), torch.nn.ReLU(), 
+                    torch.nn.Linear(123, 123), torch.nn.ReLU(), 
+                    torch.nn.Linear(123, 3))
         }
     
     # Distance hyperparameters
-    lr = 1.72e-04
-    n_epochs = 50
-    l2 = 7.81e-05
+    lr = 0.00083
+    n_epochs = 100
+    l2 = 2.13e-05
     mlp_cls_dist, train_loss_per_epoch_dist, val_loss_per_epoch_dist = train("dist", layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
 
     # Charge hyperparameters
-    lr = 1.07e-04
-    n_epochs = 50
-    l2 = 0.0033
+    lr = 0.00049
+    n_epochs = 100
+    l2 = .002069
     mlp_cls_charge, train_loss_per_epoch_charge, val_loss_per_epoch_charge = train("charge", layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
 
 
@@ -930,7 +935,7 @@ def optuna_mlp(data_split_type, n_trials):
     n_dist = data_split['dist']['X_train'].shape[1]
     n_charge = data_split['charge']['X_train'].shape[1]
 
-    filename = "mlp_hyperopt.txt"
+    filename = f"mlp_hyperopt_{n_trials}.txt"
     with open(filename, 'w') as file:
         for feature in features:
             study = optuna.create_study(direction='minimize')
@@ -946,5 +951,15 @@ def optuna_mlp(data_split_type, n_trials):
 
 
 if __name__ == "__main__":
+    # Setting up argument parser
+    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser.add_argument('--value', type=int, default=None,
+                        help='An integer value to be passed to optuna_mlp')
+    args = parser.parse_args()
+
     data_split_type = 1
-    optuna_mlp(data_split_type, 750)
+
+    # If user passed the value argument, use it. Otherwise, use default 500.
+    value_to_pass = args.value if args.value is not None else 500
+
+    optuna_mlp(data_split_type, value_to_pass)

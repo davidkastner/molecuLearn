@@ -620,18 +620,18 @@ def rf_analysis(data_split_type):
     # data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.875)
 
     # Dist hyperparameters
-    n_estimators=50
+    n_estimators=100
     max_depth=None
-    min_samples_split=2
-    min_samples_leaf=2
+    min_samples_split=3
+    min_samples_leaf=3
     feature = "dist"
     rf_cls_dist = train_random_forest(feature, data_split, n_estimators, max_depth, min_samples_split, min_samples_leaf)
 
     # Charge hyperparameters
-    n_estimators=150
-    max_depth=35
-    min_samples_split=6
-    min_samples_leaf=2
+    n_estimators=110
+    max_depth=45
+    min_samples_split=7
+    min_samples_leaf=3
     feature = "charge"
     rf_cls_charge = train_random_forest(feature, data_split, n_estimators, max_depth, min_samples_split, min_samples_leaf)
 

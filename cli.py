@@ -131,6 +131,7 @@ def cli(
         # 1 splits each traj train/val/test; 2 splits all train/val/test
         data_split_type = 2
         ml.rf.rf_analysis(data_split_type)
+        # Uncomment this part and comment the previous to run hyperopt
         # ml.rf.hyperparam_opt(data_split_type)
 
 
@@ -143,6 +144,7 @@ def cli(
         data_split_type = 2
         ml.mlp.format_plots()
         ml.mlp.run_mlp(data_split_type)
+        # Uncomment this part and comment the previous to run hyperopt
         # ml.mlp.optuna_mlp(data_split_type, n_trials=500)
 
 
