@@ -1,5 +1,6 @@
 name: ml
 channels:
+  - pytorch
   - conda-forge
   - defaults
 dependencies:
@@ -21,4 +22,8 @@ dependencies:
     - sphinx_rtd_theme==1.1.1
     - sphinx-autoapi
     - https://github.com/revitron/revitron-sphinx-theme/archive/refs/tags/0.7.0.zip
-    
+
+#### GPU INSTALL ATTEMPTS ####
+# conda create --name ml-gpu python=3.8
+# conda activate ml-gpu
+# conda install pytorch pytorch-cuda=11.8 -c pytorch -c nvidia

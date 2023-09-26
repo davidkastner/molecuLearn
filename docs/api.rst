@@ -5,8 +5,6 @@ API Documentation
    :toctree: autosummary
    :recursive:
 
-   ml.lime_utils
-   ml.manage
-   ml.mlp
    ml.process
+   ml.mlp
    ml.rf

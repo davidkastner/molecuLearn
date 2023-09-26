@@ -265,7 +265,7 @@ def evaluate_model(feature, mlp_cls, test_dataloader, device, mimos):
         y_pred_proba[feature] = y_pred_proba_feature_specific
         y_pred[feature] = y_pred_feature_specific
         y_true[feature] = y_true_feature_specific
-        print(f"Mean test loss for {feature} MLP model: {np.array(losses).mean():.4f}")
+        print(f"   > Mean test loss for {feature} MLP model: {np.array(losses).mean():.4f}")
         test_loss[feature] = np.array(losses).mean()
 
         y_true_feature_specific = np.argmax(y_true_feature_specific, axis=1)
@@ -710,7 +710,7 @@ def plot_confusion_matrices(cms, mimos):
         plt.savefig(f"mlp_cm.{ext}", bbox_inches="tight", format=ext, dpi=300)
 
 
-def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
+def shap_analysis(mlp_cls, test_loader, train_loader, df_dist, df_charge, mimos):
     """
     Plot SHAP dot plots for each mimichrome to identify importance
 
@@ -736,8 +736,43 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
     shap_values = {}
     test = {}
     for i, feature in enumerate(features):
-        # Load in a random batch from the test dataloader and interpret predictions for 156 data points
-        batch = next(iter(test_loader[feature]))
+    #  THIS IS THE NEW WAY THAT DOESN'T WORK YET
+    #     # Load all training data (or a large portion of it) for SHAP analysis
+    #     all_train_data = [data for data, _ in train_loader[feature]]
+    #     all_train_data = torch.cat(all_train_data, 0)  # concatenate all batches
+    #     print(f"   > Number of data points in the training data: {all_train_data.shape[0]}")
+
+    #     # Select an even distribution across the train data as the background
+    #     background = all_train_data[::100]
+
+    #     # The data for which we want to calculate the SHAP values
+    #     analysis_data = all_train_data[::10]  # or a subset like all_train_data[:N]
+    #     print(f"   > Number of data points in the analysis data: {analysis_data.shape[0]}")
+
+    #     # Initialize the explainer and compute SHAP values
+    #     explainer = shap.DeepExplainer(mlp_cls[feature], background)
+    #     shap_values[feature] = explainer.shap_values(analysis_data)
+
+    # # For each mimichrome, plot the SHAP values as dot plots
+    # for i in range(len(mimos)):
+    #     # Each mimichrome has two datasets: charges and features
+    #     fig, axs = plt.subplots(1, 2, figsize=(20, 5))
+    #     for j, ax in enumerate(axs):
+    #         plt.sca(ax)
+    #         shap.summary_plot(
+    #             shap_values[features[j]][i],
+    #             analysis_data,  # Updated here
+    #             feature_names=df[features[j]][mimos[i]].columns.to_list(),
+    #             show=False,
+    #         )
+    #         axs[j].set_title(f"{features[j]}, {mimos[i]}", fontweight="bold")
+    #     extensions = ["svg", "png"]
+    #     for ext in extensions:
+    #         plt.savefig(f"mlp_shap_{mimos[i]}.{ext}", bbox_inches="tight", format=ext, dpi=300)
+
+        # THIS IS THE OLD WAY
+        # Load in a random batch from the train dataloader and interpret predictions for 156 data points
+        batch = next(iter(train_loader[feature]))
         data, _ = batch
 
         # Print the number of data points
@@ -745,6 +780,7 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
 
         # Define the first 100 datapoints as the background used as reference when calculating SHAP values
         background = data[:100]
+        print(f"This is the shape of the data {data.shape}")
         test[feature] = data[100:]
         explainer = shap.DeepExplainer(mlp_cls[feature], background)
         shap_values[feature] = explainer.shap_values(test[feature])
@@ -765,6 +801,7 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
         extensions = ["svg", "png"]
         for ext in extensions:
             plt.savefig(f"mlp_shap_{mimos[i]}.{ext}", bbox_inches="tight", format=ext, dpi=300)
+
 
     # Get the summary SHAP plots that combine feature importance for all classes
     fig, axs = plt.subplots(1, 2, figsize=(15, 5))
@@ -821,7 +858,7 @@ class MDDataset(torch.utils.data.Dataset):
         return self.len
 
 
-def run_mlp(data_split_type):
+def run_mlp(data_split_type, n_epochs):
 
     # Get datasets
     format_plots()
@@ -853,13 +890,11 @@ def run_mlp(data_split_type):
     
     # Distance hyperparameters
     lr = 0.00083
-    n_epochs = 100
     l2 = 2.13e-05
     mlp_cls_dist, train_loss_per_epoch_dist, val_loss_per_epoch_dist = train("dist", layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
 
     # Charge hyperparameters
     lr = 0.00049
-    n_epochs = 100
     l2 = .002069
     mlp_cls_charge, train_loss_per_epoch_charge, val_loss_per_epoch_charge = train("charge", layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
 
@@ -882,7 +917,7 @@ def run_mlp(data_split_type):
     # Plot ROC-AUC curves, confusion matrices and SHAP dot plots
     plot_roc_curve(y_true, y_pred_proba, mimos)
     plot_confusion_matrices(cms, mimos)
-    shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos)
+    shap_analysis(mlp_cls, test_loader, train_loader, df_dist, df_charge, mimos)
 
     # Clean up the newly generated files
     mlp_dir = "MLP"
