@@ -4,6 +4,7 @@ import os
 import shap
 import torch
 import optuna
+import math
 import shutil
 import argparse
 import numpy as np
@@ -710,7 +711,7 @@ def plot_confusion_matrices(cms, mimos):
         plt.savefig(f"mlp_cm.{ext}", bbox_inches="tight", format=ext, dpi=300)
 
 
-def shap_analysis(mlp_cls, test_loader, train_loader, df_dist, df_charge, mimos):
+def shap_analysis(mlp_cls, train_loader, test_loader, val_loader, df_dist, df_charge, mimos):
     """
     Plot SHAP dot plots for each mimichrome to identify importance
 
@@ -718,8 +719,14 @@ def shap_analysis(mlp_cls, test_loader, train_loader, df_dist, df_charge, mimos)
     ----------
     mlp_cls : dict
         Dict containing trained MLP classifiers for distance and charge features
+    train_loader : dict
+        Dict containing DataLoader object for the train data for distance
+        and charge features
     test_loader : dict
         Dict containing DataLoader object for the test data for distance
+        and charge features
+    val_loader : dict
+        Dict containing DataLoader object for the val data for distance
         and charge features
     df_dist : dict
         Dict of DataFrames containing distance data for each MIMO type.
@@ -736,52 +743,32 @@ def shap_analysis(mlp_cls, test_loader, train_loader, df_dist, df_charge, mimos)
     shap_values = {}
     test = {}
     for i, feature in enumerate(features):
-    #  THIS IS THE NEW WAY THAT DOESN'T WORK YET
-    #     # Load all training data (or a large portion of it) for SHAP analysis
-    #     all_train_data = [data for data, _ in train_loader[feature]]
-    #     all_train_data = torch.cat(all_train_data, 0)  # concatenate all batches
-    #     print(f"   > Number of data points in the training data: {all_train_data.shape[0]}")
+        # Take in the provided data loader(s) and retrieve the entire dataset
+        # For now, function only takes in train_loader, but in the future, we
+        # can add val_loader and test_loader, iterate through each loader and
+        # append to all_data
+        all_data = None
+        for data, _ in train_loader[feature]:
+            if all_data is None:
+                all_data = data
+            else:
+                all_data = torch.cat((all_data, data), dim = 0)
+        
+        for data, _ in test_loader[feature]:
+            all_data = torch.cat((all_data, data), dim = 0)
 
-    #     # Select an even distribution across the train data as the background
-    #     background = all_train_data[::100]
-
-    #     # The data for which we want to calculate the SHAP values
-    #     analysis_data = all_train_data[::10]  # or a subset like all_train_data[:N]
-    #     print(f"   > Number of data points in the analysis data: {analysis_data.shape[0]}")
-
-    #     # Initialize the explainer and compute SHAP values
-    #     explainer = shap.DeepExplainer(mlp_cls[feature], background)
-    #     shap_values[feature] = explainer.shap_values(analysis_data)
-
-    # # For each mimichrome, plot the SHAP values as dot plots
-    # for i in range(len(mimos)):
-    #     # Each mimichrome has two datasets: charges and features
-    #     fig, axs = plt.subplots(1, 2, figsize=(20, 5))
-    #     for j, ax in enumerate(axs):
-    #         plt.sca(ax)
-    #         shap.summary_plot(
-    #             shap_values[features[j]][i],
-    #             analysis_data,  # Updated here
-    #             feature_names=df[features[j]][mimos[i]].columns.to_list(),
-    #             show=False,
-    #         )
-    #         axs[j].set_title(f"{features[j]}, {mimos[i]}", fontweight="bold")
-    #     extensions = ["svg", "png"]
-    #     for ext in extensions:
-    #         plt.savefig(f"mlp_shap_{mimos[i]}.{ext}", bbox_inches="tight", format=ext, dpi=300)
-
-        # THIS IS THE OLD WAY
-        # Load in a random batch from the train dataloader and interpret predictions for 156 data points
-        batch = next(iter(train_loader[feature]))
-        data, _ = batch
-
-        # Print the number of data points
-        print(f"Number of data points in 'data': {data.shape[0]}")
-
-        # Define the first 100 datapoints as the background used as reference when calculating SHAP values
-        background = data[:100]
-        print(f"This is the shape of the data {data.shape}")
-        test[feature] = data[100:]
+        for data, _ in val_loader[feature]:
+            all_data = torch.cat((all_data, data), dim = 0)
+        
+        print(f"This is the shape of the entire dataset {all_data.shape}")
+        
+        # The background is a subset of all_data. It takes evenly spaced points
+        # from all_data to recover a background comprising 100 data points.
+        spacing = math.ceil(all_data.shape[0] / 100)
+        background = all_data[::spacing]
+        print(f"This is the shape of the background {background.shape}")
+        # Use all_data to calculate SHAP values
+        test[feature] = all_data
         explainer = shap.DeepExplainer(mlp_cls[feature], background)
         shap_values[feature] = explainer.shap_values(test[feature])
 
@@ -917,7 +904,7 @@ def run_mlp(data_split_type, n_epochs):
     # Plot ROC-AUC curves, confusion matrices and SHAP dot plots
     plot_roc_curve(y_true, y_pred_proba, mimos)
     plot_confusion_matrices(cms, mimos)
-    shap_analysis(mlp_cls, test_loader, train_loader, df_dist, df_charge, mimos)
+    shap_analysis(mlp_cls, train_loader, test_loader, val_loader, df_dist, df_charge, mimos)
 
     # Clean up the newly generated files
     mlp_dir = "MLP"
