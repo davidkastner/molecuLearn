@@ -47,7 +47,7 @@ def load_data(mimos, data_loc):
     for mimo in mimos:
         # Load charge data from CSV file and store in dictionary
         df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charge_esp.csv")
-        df_charge[mimo] = df_charge[mimo].drop(columns=["replicate"])
+        df_charge[mimo] = df_charge[mimo].drop(columns=["upper", "lower", "replicate"])
 
         # Load distance data from CSV file and store in dictionary
         df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distance.csv")
@@ -463,78 +463,6 @@ def plot_confusion_matrices(cms, mimos):
         plt.savefig(f"rf_cm.{ext}", bbox_inches="tight", format=ext, dpi=300)
 
 
-def shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos):
-    """
-    Plot SHAP dot plots for each mimichrome.
-
-    Plots are generated for both charge and distance features.
-    Identifies contribution of each feature to the prediction for a specific instance.
-
-    Parameters
-    ----------
-    rf_cls : dict
-        Dictionary containing trained RF classifiers for distance and charge features
-    data_split : dict
-        Dictionary containing the training and testing data for distance and charge features.
-    df_dist : dict
-        Dictionary of DataFrames containing distance data for each MIMO type.
-    df_charge : dict
-        Dictionary of DataFrames containing charge data for each MIMO type.
-    mimos : list
-        List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
-    
-    """
-    features = ["dist", "charge"]
-
-    df = {"dist": df_dist, "charge": df_charge}
-
-    shap_values = {}
-    test = {}
-    for i, feature in enumerate(features):
-        # Load in a random batch from the test dataloader and interpret predictions for 156 data points
-        test_features = data_split[feature]["X_test"]
-        # Define the first 100 datapoints as the background used as reference when calculating SHAP values
-        background = test_features[:100]
-        test[feature] = test_features[-156:]  # Same number of test data points as MLP
-        explainer = shap.TreeExplainer(rf_cls[feature], data=background)
-        shap_values[feature] = explainer.shap_values(test[feature])
-
-    # For each mimichrome, plot the SHAP values as dot plots
-    for i in range(len(mimos)):
-        # Each mimichrome has two datasets: charges and features
-        fig, axs = plt.subplots(1, 2, figsize=(20, 5))
-        for j, ax in enumerate(axs):
-            plt.sca(ax)
-            shap.summary_plot(
-                shap_values[features[j]][i],
-                test[features[j]],
-                feature_names=df[features[j]][mimos[i]].columns.to_list(),
-                show=False,
-            )
-            axs[j].set_title(f"{features[j]}, {mimos[i]}", fontweight="bold")
-        extensions = ["svg", "png"]
-        for ext in extensions:
-            plt.savefig(f"rf_shap_{mimos[i]}.{ext}", bbox_inches="tight", format=ext, dpi=300)
-
-    # Get the summary SHAP plots that combine feature importance for all classes
-    fig, axs = plt.subplots(1, 2, figsize=(15, 5))
-    for j, feature in enumerate(features):
-        plt.sca(axs[j])
-        shap.summary_plot(
-            shap_values[feature],
-            test[feature],
-            feature_names=df[feature]["mc6"].columns.to_list(),
-            plot_type="bar",
-            show=False,
-            plot_size=(15, 5),
-            class_names=mimos,
-        )
-        axs[j].set_title(f"{feature}", fontweight="bold")
-    extensions = ["svg", "png"]
-    for ext in extensions:
-        plt.savefig(f"rf_shap_combined.{ext}", bbox_inches="tight", format=ext, dpi=300)
-
-
 def plot_gini_importance(rf_cls, df_dist, df_charge):
     """
     Plot Gini importance bar plots for the top 20 features for each feature type.
@@ -559,15 +487,25 @@ def plot_gini_importance(rf_cls, df_dist, df_charge):
     fig, axs = plt.subplots(1, 2, figsize=(20, 5))
     for i, feature in enumerate(features):
         # Obtain importances from the trained model attribute and sort
-        gini_importance[feature] = rf_cls[feature].feature_importances_
+        gini_importance[feature] = rf_cls[feature].feature_importances_  
         sorted_indices = np.argsort(gini_importance[feature])[::-1]
         top_indices = sorted_indices[:20]
-        top_gini_importance[feature] = gini_importance[feature][top_indices]
+        top_gini_importance[feature] = gini_importance[feature][top_indices] # Printing this will give y axis values in Gini bar plot (top 20)
         # Get corresponding feature names
         all_feature_names = df[feature][
             "mc6"
         ].columns.to_list()  # All mimo classes havev same feature labels
-        top_feature_names[feature] = [all_feature_names[j] for j in top_indices]
+        top_feature_names[feature] = [all_feature_names[j] for j in top_indices] # Printing this will give x axis values in Gini bar plot (top 20)
+
+        # Print gini scores for charge features
+        if feature == "charge":
+            gini_arr = []
+            for name, gini_score in zip(all_feature_names, gini_importance[feature]):
+                gini_arr.append([name, gini_score])
+            gini_arr = np.array(gini_arr)
+            col_names = ["residue", "gini_score"]
+            gini_df = pd.DataFrame(gini_arr, columns=col_names)
+            gini_df.to_csv("rf_charge_gini_scores.csv", index=False)
 
         axs[i].bar(
             range(len(top_gini_importance[feature])),
@@ -642,7 +580,6 @@ def rf_analysis(data_split_type):
     cms,y_true, y_pred_proba = evaluate(rf_cls, data_split, mimos)
     plot_roc_curve(y_true, y_pred_proba, mimos)
     plot_confusion_matrices(cms, mimos)
-    shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos)
     plot_gini_importance(rf_cls, df_dist, df_charge)
 
     # Clean up the newly generated files
