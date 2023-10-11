@@ -44,7 +44,7 @@ def load_data(mimos, data_loc):
     for mimo in mimos:
         # Load charge data from CSV file and store in dictionary
         df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charge_esp.csv")
-        df_charge[mimo] = df_charge[mimo].drop(columns=["replicate"])
+        df_charge[mimo] = df_charge[mimo].drop(columns=["upper", "lower", "replicate"])
 
         # Load distance data from CSV file and store in dictionary
         df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distance.csv")
@@ -769,8 +769,28 @@ def shap_analysis(mlp_cls, train_loader, test_loader, val_loader, df_dist, df_ch
         print(f"This is the shape of the background {background.shape}")
         # Use all_data to calculate SHAP values
         test[feature] = all_data
+        # Deep Explainer:
         explainer = shap.DeepExplainer(mlp_cls[feature], background)
         shap_values[feature] = explainer.shap_values(test[feature])
+        # Print out mean of absolute shap values for each charge/mimochrome
+        # combination
+        if feature == "charge":
+            charge_mean_shap_vals = []
+            for mimo_arr in shap_values[feature]:
+                mimo_arr = np.transpose(mimo_arr)
+                mimo_mean_shap_arr = []
+                for charge_feature in mimo_arr:
+                    mimo_mean_shap_arr.append(np.mean(np.abs(charge_feature)))
+                charge_mean_shap_vals.append(mimo_mean_shap_arr)
+
+            charge_mean_shap_vals = np.transpose(np.array(charge_mean_shap_vals))
+            row_labels = df[feature][mimos[0]].columns.to_list()
+            column_labels = mimos
+            header_row = "," + ",".join(column_labels)
+            charge_mean_shap_vals_with_labels = [f"{row_label}," + ",".join(map(str, row)) for row_label, row in zip(row_labels, charge_mean_shap_vals)]
+            shap_values_csv_content = "\n".join([header_row] + charge_mean_shap_vals_with_labels)
+            with open('mlp_charge_mean_abs_shap_values.csv', 'w') as file:
+                file.write(shap_values_csv_content)
 
     # For each mimichrome, plot the SHAP values as dot plots
     for i in range(len(mimos)):
