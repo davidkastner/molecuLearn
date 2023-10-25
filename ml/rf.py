@@ -18,7 +18,7 @@ from sklearn.preprocessing import StandardScaler, LabelBinarizer
 np.set_printoptions(threshold=sys.maxsize)
 
 
-def load_data(mimos, data_loc):
+def load_data(mimos, include_esp, data_loc):
     """
     Load data from CSV files for each mimo in the given list.
 
@@ -47,7 +47,12 @@ def load_data(mimos, data_loc):
     for mimo in mimos:
         # Load charge data from CSV file and store in dictionary
         df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charge_esp.csv")
-        df_charge[mimo] = df_charge[mimo].drop(columns=["upper", "lower", "replicate"])
+        df_charge[mimo] = df_charge[mimo].drop(columns=["replicate"])
+        
+        # Option to include the ESP features
+        include_esp = include_esp.strip().lower()
+        if include_esp not in ['t', 'true', True]:
+            df_charge[mimo].drop(columns=["upper", "lower"], inplace=True)
 
         # Load distance data from CSV file and store in dictionary
         df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distance.csv")
@@ -545,12 +550,12 @@ def format_plots() -> None:
     plt.rcParams["ytick.right"] = True
     plt.rcParams["svg.fonttype"] = "none"
 
-def rf_analysis(data_split_type):
+def rf_analysis(data_split_type, include_esp):
     # Get datasets
     format_plots()
     mimos = ['mc6', 'mc6s', 'mc6sa']
     data_loc = os.getcwd()
-    df_charge, df_dist = load_data(mimos, data_loc)
+    df_charge, df_dist = load_data(mimos, include_esp, data_loc)
     plot_data(df_charge, df_dist, mimos)
 
     # Preprocess the data and split into train and test sets
@@ -593,11 +598,11 @@ def rf_analysis(data_split_type):
         if file.startswith("rf_"):
             shutil.move(file, os.path.join(rf_dir, file))
 
-def train_random_forest_with_optimization(data_split, param_grid):
+def train_random_forest_with_optimization(data_split, param_grid, out_name):
     rf_cls = {}
     features = ["dist", "charge"]
 
-    with open("rf_hyperopt.txt", "w") as f:
+    with open(f"rf_hyperopt_{out_name}.txt", "w") as f:
         for feature in features:
             rf = RandomForestClassifier()
             grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, 
@@ -608,7 +613,7 @@ def train_random_forest_with_optimization(data_split, param_grid):
 
     return rf_cls
 
-def hyperparam_opt(data_split_type):
+def hyperparam_opt(data_split_type, include_esp, out_name):
     param_grid = {
         'n_estimators': [50, 60, 75, 90, 100, 110, 125, 135, 150, 175, 190, 200, 210, 225],
         'max_depth': [None, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
@@ -618,17 +623,27 @@ def hyperparam_opt(data_split_type):
 
     mimos = ['mc6', 'mc6s', 'mc6sa']
     data_loc = os.getcwd()
-    df_charge, df_dist = load_data(mimos, data_loc)
+    df_charge, df_dist = load_data(mimos, include_esp, data_loc)
 
     # Preprocess the data and split into train and test sets
     data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type)
     # data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.875)
 
     # Train a random forest classifier for each feature with hyperparameter optimization
-    train_random_forest_with_optimization(data_split, param_grid)
+    train_random_forest_with_optimization(data_split, param_grid, out_name)
 
 
 if __name__ == "__main__":
-    data_split_type = 1
-    # rf_analysis(data_split_type)
-    hyperparam_opt(data_split_type)
+    # Setting up argument parser
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Process input parameters.')
+    parser.add_argument('--data_split_type', type=int, default=1, 
+                        help='Type of data split to use. Default is 1.')
+    parser.add_argument('--include_esp', type=str, default='False',
+                        help='Whether to include ESP features.')
+    parser.add_argument('--out_name', type=str, default='RF',
+                        help='Adds distinguishing extension to out file.')
+    args = parser.parse_args()
+
+    hyperparam_opt(args.data_split_type, args.include_esp, args.out_name)
