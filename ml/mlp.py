@@ -18,7 +18,7 @@ from sklearn.metrics import confusion_matrix, roc_curve, auc
 from sklearn.preprocessing import StandardScaler, LabelBinarizer
 
 
-def load_data(mimos, data_loc):
+def load_data(mimos, include_esp, data_loc):
     """
     Load data from CSV files for each mimo in the given list.
 
@@ -44,7 +44,12 @@ def load_data(mimos, data_loc):
     for mimo in mimos:
         # Load charge data from CSV file and store in dictionary
         df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charge_esp.csv")
-        df_charge[mimo] = df_charge[mimo].drop(columns=["upper", "lower", "replicate"])
+        df_charge[mimo] = df_charge[mimo].drop(columns=["replicate"])
+        
+        # Option to include the ESP features
+        include_esp = include_esp.strip().lower()
+        if include_esp not in ['t', 'true', True]:
+            df_charge[mimo].drop(columns=["upper", "lower"], inplace=True)
 
         # Load distance data from CSV file and store in dictionary
         df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distance.csv")
@@ -865,13 +870,13 @@ class MDDataset(torch.utils.data.Dataset):
         return self.len
 
 
-def run_mlp(data_split_type, n_epochs):
+def run_mlp(data_split_type, include_esp, n_epochs):
 
     # Get datasets
     format_plots()
     mimos = ["mc6", "mc6s", "mc6sa"]
     data_loc = os.getcwd()
-    df_charge, df_dist = load_data(mimos, data_loc)
+    df_charge, df_dist = load_data(mimos, include_esp, data_loc)
     plot_data(df_charge, df_dist, mimos)
 
     # Preprocess the data and split into train, validation, and test sets
@@ -885,26 +890,25 @@ def run_mlp(data_split_type, n_epochs):
     n_dist = data_split['dist']['X_train'].shape[1]
     n_charge = data_split['charge']['X_train'].shape[1]
     
-    layers = {'dist': (torch.nn.Linear(n_dist, 73), torch.nn.ReLU(), 
-                    torch.nn.Linear(73, 73), torch.nn.ReLU(), 
-                    torch.nn.Linear(73, 73), torch.nn.ReLU(), 
-                    torch.nn.Linear(73, 3)),
-        'charge': (torch.nn.Linear(n_charge, 123), torch.nn.ReLU(), 
-                    torch.nn.Linear(123, 123), torch.nn.ReLU(), 
-                    torch.nn.Linear(123, 123), torch.nn.ReLU(), 
-                    torch.nn.Linear(123, 3))
+    layers = {'dist': (torch.nn.Linear(n_dist, 231), torch.nn.ReLU(), 
+                    torch.nn.Linear(231, 231), torch.nn.ReLU(), 
+                    torch.nn.Linear(231, 231), torch.nn.ReLU(), 
+                    torch.nn.Linear(231, 3)),
+        'charge': (torch.nn.Linear(n_charge, 186), torch.nn.ReLU(), 
+                    torch.nn.Linear(186, 186), torch.nn.ReLU(), 
+                    torch.nn.Linear(186, 186), torch.nn.ReLU(), 
+                    torch.nn.Linear(186, 3))
         }
     
     # Distance hyperparameters
-    lr = 0.00083
-    l2 = 2.13e-05
+    lr = 0.0007142
+    l2 = 0.0003122
     mlp_cls_dist, train_loss_per_epoch_dist, val_loss_per_epoch_dist = train("dist", layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
 
     # Charge hyperparameters
-    lr = 0.00049
-    l2 = .002069
+    lr = 0.0003770
+    l2 = 0.0037956
     mlp_cls_charge, train_loss_per_epoch_charge, val_loss_per_epoch_charge = train("charge", layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
-
 
     # Combine the results back together for efficient analysis
     mlp_cls = {**mlp_cls_dist, **mlp_cls_charge}
@@ -959,12 +963,12 @@ def train_with_hyperparameters(trial, feature, train_loader, val_loader, n_dist,
     return val_loss_per_epoch[feature][-1]
 
 
-def optuna_mlp(data_split_type, n_trials):
+def optuna_mlp(data_split_type, include_esp, n_trials, out_name):
     # Get datasets
     features = ["dist", "charge"]
     mimos = ["mc6", "mc6s", "mc6sa"]
     data_loc = os.getcwd()
-    df_charge, df_dist = load_data(mimos, data_loc)
+    df_charge, df_dist = load_data(mimos, include_esp, data_loc)
 
     # Preprocess the data and split into train, validation, and test sets
     data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type)
@@ -977,7 +981,7 @@ def optuna_mlp(data_split_type, n_trials):
     n_dist = data_split['dist']['X_train'].shape[1]
     n_charge = data_split['charge']['X_train'].shape[1]
 
-    filename = f"mlp_hyperopt_{n_trials}.txt"
+    filename = f"mlp_hyperopt_{out_name}.txt"
     with open(filename, 'w') as file:
         for feature in features:
             study = optuna.create_study(direction='minimize')
@@ -994,14 +998,17 @@ def optuna_mlp(data_split_type, n_trials):
 
 if __name__ == "__main__":
     # Setting up argument parser
-    parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('--value', type=int, default=None,
-                        help='An integer value to be passed to optuna_mlp')
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Process input parameters.')
+    parser.add_argument('--n_trials', type=int, default=500,
+                        help='The number of trials for optuna_mlp')
+    parser.add_argument('--data_split_type', type=int, default=1, 
+                        help='Type of data split to use. Default is 1.')
+    parser.add_argument('--include_esp', type=str, default='False',
+                        help='Whether to include ESP features.')
+    parser.add_argument('--out_name', type=str, default='MLP',
+                        help='Adds distinguishing extension to out file.')
     args = parser.parse_args()
 
-    data_split_type = 1
-
-    # If user passed the value argument, use it. Otherwise, use default 500.
-    value_to_pass = args.value if args.value is not None else 500
-
-    optuna_mlp(data_split_type, value_to_pass)
+    optuna_mlp(args.data_split_type, args.include_esp, args.n_trials, args.out_name)

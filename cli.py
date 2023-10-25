@@ -130,9 +130,9 @@ def cli(
 
         # 1 splits each traj train/val/test; 2 splits all train/val/test
         data_split_type = int(input("   > Intra- (1) or inter-trajectory (2) data split? "))
-        ml.rf.rf_analysis(data_split_type)
-        # Uncomment this part and comment the previous to run hyperopt
-        # ml.rf.hyperparam_opt(data_split_type)
+        include_esp = input("   > Include ESP features (T/F)? ")
+        ml.rf.rf_analysis(data_split_type, include_esp)
+        # ml.rf.hyperparam_opt(data_split_type) # Uncomment and comment previous for hyperopt
 
 
     elif mlp:
@@ -143,11 +143,10 @@ def cli(
         # 1 splits each traj train/val/test; 2 splits all train/val/test
         data_split_type = int(input("   > Intra- (1) or inter-trajectory (2) data split? "))
         epochs = int(input("   > Epochs to run? "))
+        include_esp = input("   > Include ESP features (T/F)? ")
         ml.mlp.format_plots()
-        ml.mlp.run_mlp(data_split_type, epochs)
-
-        # Uncomment this part and comment the previous to run hyperopt
-        # ml.mlp.optuna_mlp(data_split_type, n_trials=500)
+        ml.mlp.run_mlp(data_split_type, include_esp, epochs)
+        # ml.mlp.optuna_mlp(data_split_type, n_trials=500) # Uncomment and comment previous for hyperopt
 
 
     else:
