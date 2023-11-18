@@ -128,6 +128,19 @@ def cli(
         click.echo("> Loading...")
         import ml.rf
 
+        # Best hyperparameters stored
+        # All RF models for distances had the same best hyperparameters
+        RF_dist = {"max_depth": None,
+                   "mins_samples_leaf": 3,
+                   "min_samples_split": 3,
+                   "n_estimators": 55,
+        }
+        RF_charge = {"max_depth": 35,
+                     "mins_samples_leaf": 3,
+                     "min_samples_split": 5,
+                     "n_estimators": 135,
+        }
+
         # 1 splits each traj train/val/test; 2 splits all train/val/test
         data_split_type = int(input("   > Intra- (1) or inter-trajectory (2) data split? "))
         include_esp = input("   > Include ESP features (T/F)? ")
@@ -139,6 +152,17 @@ def cli(
         click.echo("> Run MLP model on the cleaned data:")
         click.echo("> Loading...")
         import ml.mlp
+
+        MLP_dist = {"lr":0.000395678,
+                    "l2":4.02E-05,
+                    "n_layers":3,
+                    "n_neurons":189,
+        }
+        MLP_charge = {"lr":1.73E-03,
+                      "l2":0.001853586,
+                      "n_layers":2,
+                      "n_neurons":148,
+        }
 
         # 1 splits each traj train/val/test; 2 splits all train/val/test
         data_split_type = int(input("   > Intra- (1) or inter-trajectory (2) data split? "))
