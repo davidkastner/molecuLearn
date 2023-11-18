@@ -609,16 +609,16 @@ def train_random_forest_with_optimization(data_split, param_grid, out_name):
                                        cv=3, verbose=2, n_jobs=48, scoring='accuracy')
             grid_search.fit(data_split[feature]["X_train"], data_split[feature]["y_train"])
             rf_cls[feature] = grid_search.best_estimator_
-            f.write(f"Best parameters for {feature} are: {grid_search.best_params_}\n")
+            f.write(f"Best parameters for {feature} are: {grid_search.best_params_}\nBest validation loss: {grid_search.best_score_}\n")
 
     return rf_cls
 
 def hyperparam_opt(data_split_type, include_esp, out_name):
     param_grid = {
-        'n_estimators': [50, 60, 75, 90, 100, 110, 125, 135, 150, 175, 190, 200, 210, 225],
-        'max_depth': [None, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
-        'min_samples_split': [3, 4, 5, 6, 7, 8, 10],
-        'min_samples_leaf': [3, 4, 6, 5, 7, 8, 10],
+        'n_estimators': [55, 60, 65, 75, 90, 95, 100, 105, 110, 125, 135, 150, 175, 190, 200, 210, 215, 220, 225],
+        'max_depth': [None, 20, 25, 30, 35, 40, 45, 50, 55, 60],
+        'min_samples_split': [3, 4, 5, 6, 7, 8],
+        'min_samples_leaf': [3, 4, 6, 5, 7, 8],
     }
 
     mimos = ['mc6', 'mc6s', 'mc6sa']
@@ -627,7 +627,6 @@ def hyperparam_opt(data_split_type, include_esp, out_name):
 
     # Preprocess the data and split into train and test sets
     data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type)
-    # data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.875)
 
     # Train a random forest classifier for each feature with hyperparameter optimization
     train_random_forest_with_optimization(data_split, param_grid, out_name)

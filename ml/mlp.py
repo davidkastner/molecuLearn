@@ -836,27 +836,6 @@ def shap_analysis(mlp_cls, train_loader, test_loader, val_loader, df_dist, df_ch
         plt.savefig(f"{file_name}.{ext}", bbox_inches="tight", format=ext, dpi=300)
 
 
-def format_plots() -> None:
-    """
-    General plotting parameters for the Kulik Lab.
-
-    """
-    font = {"family": "sans-serif", "weight": "bold", "size": 10}
-    plt.rc("font", **font)
-    plt.rcParams["xtick.major.pad"] = 5
-    plt.rcParams["ytick.major.pad"] = 5
-    plt.rcParams["axes.linewidth"] = 2
-    plt.rcParams["xtick.major.size"] = 7
-    plt.rcParams["xtick.major.width"] = 2
-    plt.rcParams["ytick.major.size"] = 7
-    plt.rcParams["ytick.major.width"] = 2
-    plt.rcParams["xtick.direction"] = "in"
-    plt.rcParams["ytick.direction"] = "in"
-    plt.rcParams["xtick.top"] = True
-    plt.rcParams["ytick.right"] = True
-    plt.rcParams["svg.fonttype"] = "none"
-
-
 class MDDataset(torch.utils.data.Dataset):
     def __init__(self, X, y):
         self.X = torch.Tensor(np.array(X))  # store X as a pytorch Tensor
@@ -890,24 +869,24 @@ def run_mlp(data_split_type, include_esp, n_epochs):
     n_dist = data_split['dist']['X_train'].shape[1]
     n_charge = data_split['charge']['X_train'].shape[1]
     
-    layers = {'dist': (torch.nn.Linear(n_dist, 231), torch.nn.ReLU(), 
-                    torch.nn.Linear(231, 231), torch.nn.ReLU(), 
-                    torch.nn.Linear(231, 231), torch.nn.ReLU(), 
-                    torch.nn.Linear(231, 3)),
-        'charge': (torch.nn.Linear(n_charge, 186), torch.nn.ReLU(), 
-                    torch.nn.Linear(186, 186), torch.nn.ReLU(), 
-                    torch.nn.Linear(186, 186), torch.nn.ReLU(), 
-                    torch.nn.Linear(186, 3))
+    layers = {'dist': (torch.nn.Linear(n_dist, 155), torch.nn.ReLU(), 
+                    torch.nn.Linear(155, 155), torch.nn.ReLU(), 
+                    torch.nn.Linear(155, 155), torch.nn.ReLU(), 
+                    torch.nn.Linear(155, 3)),
+        'charge': (torch.nn.Linear(n_charge, 185), torch.nn.ReLU(), 
+                    torch.nn.Linear(185, 185), torch.nn.ReLU(), 
+                    torch.nn.Linear(185, 185), torch.nn.ReLU(), 
+                    torch.nn.Linear(185, 3))
         }
     
     # Distance hyperparameters
-    lr = 0.0007142
-    l2 = 0.0003122
+    lr = 0.0012318
+    l2 = 0.0003574
     mlp_cls_dist, train_loss_per_epoch_dist, val_loss_per_epoch_dist = train("dist", layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
 
     # Charge hyperparameters
-    lr = 0.0003770
-    l2 = 0.0037956
+    lr = 0.0002025
+    l2 = 0.0027472
     mlp_cls_charge, train_loss_per_epoch_charge, val_loss_per_epoch_charge = train("charge", layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
 
     # Combine the results back together for efficient analysis
@@ -944,7 +923,7 @@ def run_mlp(data_split_type, include_esp, n_epochs):
 
 def train_with_hyperparameters(trial, feature, train_loader, val_loader, n_dist, n_charge):
     # Hyperparameters
-    n_epochs = 100
+    n_epochs = 200
     lr = trial.suggest_float('lr', 1e-6, 1e-2, log=True)  
     l2 = trial.suggest_float('l2', 1e-6, 1e-2, log=True)  
     n_layers = trial.suggest_int('n_layers', 2, 4)  # Number of hidden layers
@@ -994,6 +973,26 @@ def optuna_mlp(data_split_type, include_esp, n_trials, out_name):
             print(f"Best parameters: {best_params}", file=file)
             print(f"Best validation loss: {best_loss}\n", file=file)
 
+
+def format_plots() -> None:
+    """
+    General plotting parameters for the Kulik Lab.
+
+    """
+    font = {"family": "sans-serif", "weight": "bold", "size": 10}
+    plt.rc("font", **font)
+    plt.rcParams["xtick.major.pad"] = 5
+    plt.rcParams["ytick.major.pad"] = 5
+    plt.rcParams["axes.linewidth"] = 2
+    plt.rcParams["xtick.major.size"] = 7
+    plt.rcParams["xtick.major.width"] = 2
+    plt.rcParams["ytick.major.size"] = 7
+    plt.rcParams["ytick.major.width"] = 2
+    plt.rcParams["xtick.direction"] = "in"
+    plt.rcParams["ytick.direction"] = "in"
+    plt.rcParams["xtick.top"] = True
+    plt.rcParams["ytick.right"] = True
+    plt.rcParams["svg.fonttype"] = "none"
 
 
 if __name__ == "__main__":
