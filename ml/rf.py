@@ -415,11 +415,13 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
                 tpr[j],
                 color=color,
                 lw=2,
-                label="ROC curve (area = %0.2f) for class %s" % (roc_auc[j], mimos[j]),
+                label="%s ROC (AUC = %0.2f)" % (mimos[j], roc_auc[j]),
             )
         plt.plot([0, 1], [0, 1], "k--", lw=2)
         plt.xlim([-0.05, 1.0])
         plt.ylim([0.0, 1.05])
+        plt.gca().set_aspect("equal", adjustable="box")
+        plt.axis("square")
         plt.xlabel("false positive rate", weight="bold")
         plt.ylabel("true positive rate", weight="bold")
         plt.title(
@@ -550,7 +552,7 @@ def format_plots() -> None:
     plt.rcParams["ytick.right"] = True
     plt.rcParams["svg.fonttype"] = "none"
 
-def rf_analysis(data_split_type, include_esp):
+def rf_analysis(data_split_type, include_esp, hyperparams):
     # Get datasets
     format_plots()
     mimos = ['mc6', 'mc6s', 'mc6sa']
@@ -563,18 +565,18 @@ def rf_analysis(data_split_type, include_esp):
     # data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.875)
 
     # Dist hyperparameters
-    n_estimators=100
-    max_depth=None
-    min_samples_split=3
-    min_samples_leaf=3
+    max_depth = hyperparams[0]["max_depth"]
+    min_samples_leaf = hyperparams[0]["mins_samples_leaf"]
+    min_samples_split = hyperparams[0]["min_samples_split"]
+    n_estimators = hyperparams[0]["n_estimators"]
     feature = "dist"
     rf_cls_dist = train_random_forest(feature, data_split, n_estimators, max_depth, min_samples_split, min_samples_leaf)
 
     # Charge hyperparameters
-    n_estimators=110
-    max_depth=45
-    min_samples_split=7
-    min_samples_leaf=3
+    max_depth = hyperparams[1]["max_depth"]
+    min_samples_leaf = hyperparams[1]["mins_samples_leaf"]
+    min_samples_split = hyperparams[1]["min_samples_split"]
+    n_estimators = hyperparams[1]["n_estimators"]
     feature = "charge"
     rf_cls_charge = train_random_forest(feature, data_split, n_estimators, max_depth, min_samples_split, min_samples_leaf)
 
