@@ -663,11 +663,13 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
                 tpr[j],
                 color=color,
                 lw=2,
-                label="ROC curve (area = %0.2f) for class %s" % (roc_auc[j], mimos[j]),
+                label="%s ROC (AUC = %0.2f)" % (mimos[j], roc_auc[j]),
             )
         plt.plot([0, 1], [0, 1], "k--", lw=2)
         plt.xlim([-0.05, 1.0])
         plt.ylim([0.0, 1.05])
+        plt.gca().set_aspect("equal", adjustable="box")
+        plt.axis("square")
         plt.xlabel("false positive rate", weight="bold")
         plt.ylabel("true positive rate", weight="bold")
         plt.title(
@@ -848,8 +850,14 @@ class MDDataset(torch.utils.data.Dataset):
     def __len__(self):
         return self.len
 
+def create_layers(input_size, n_neurons):
+    return (torch.nn.Linear(input_size, n_neurons), torch.nn.ReLU(), 
+            torch.nn.Linear(n_neurons, n_neurons), torch.nn.ReLU(), 
+            torch.nn.Linear(n_neurons, n_neurons), torch.nn.ReLU(), 
+            torch.nn.Linear(n_neurons, 3))
 
-def run_mlp(data_split_type, include_esp, n_epochs):
+
+def run_mlp(data_split_type, include_esp, n_epochs, hyperparams):
 
     # Get datasets
     format_plots()
@@ -869,25 +877,19 @@ def run_mlp(data_split_type, include_esp, n_epochs):
     n_dist = data_split['dist']['X_train'].shape[1]
     n_charge = data_split['charge']['X_train'].shape[1]
     
-    layers = {'dist': (torch.nn.Linear(n_dist, 155), torch.nn.ReLU(), 
-                    torch.nn.Linear(155, 155), torch.nn.ReLU(), 
-                    torch.nn.Linear(155, 155), torch.nn.ReLU(), 
-                    torch.nn.Linear(155, 3)),
-        'charge': (torch.nn.Linear(n_charge, 185), torch.nn.ReLU(), 
-                    torch.nn.Linear(185, 185), torch.nn.ReLU(), 
-                    torch.nn.Linear(185, 185), torch.nn.ReLU(), 
-                    torch.nn.Linear(185, 3))
-        }
-    
     # Distance hyperparameters
-    lr = 0.0012318
-    l2 = 0.0003574
-    mlp_cls_dist, train_loss_per_epoch_dist, val_loss_per_epoch_dist = train("dist", layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
+    lr_dist = hyperparams[0]["lr"]
+    l2_dist = hyperparams[0]["l2"]
+    n_neurons_dist = hyperparams[0]["n_neurons"]
+    layers_dist = {'dist': create_layers(n_dist, n_neurons_dist)}
+    mlp_cls_dist, train_loss_per_epoch_dist, val_loss_per_epoch_dist = train("dist", layers_dist, lr_dist, n_epochs, l2_dist, train_loader, val_loader, 'cpu')
 
     # Charge hyperparameters
-    lr = 0.0002025
-    l2 = 0.0027472
-    mlp_cls_charge, train_loss_per_epoch_charge, val_loss_per_epoch_charge = train("charge", layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
+    lr_charge = hyperparams[1]["lr"]
+    l2_charge = hyperparams[1]["l2"]
+    n_neurons_charge = hyperparams[1]["n_neurons"]
+    layers_charge = {'charge': create_layers(n_charge, n_neurons_charge)}
+    mlp_cls_charge, train_loss_per_epoch_charge, val_loss_per_epoch_charge = train("charge", layers_charge, lr_charge, n_epochs, l2_charge, train_loader, val_loader, 'cpu')
 
     # Combine the results back together for efficient analysis
     mlp_cls = {**mlp_cls_dist, **mlp_cls_charge}
