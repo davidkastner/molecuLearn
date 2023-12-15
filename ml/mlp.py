@@ -624,7 +624,7 @@ def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
         plt.savefig(f"mlp_loss_v_epoch.{ext}", bbox_inches="tight", format=ext, dpi=300)
 
 
-def plot_roc_curve(y_true, y_pred_proba, mimos):
+def plot_roc_curve(y_true, y_pred_proba, mimos, data_set_type):
     """
     Plot the ROC curve for the test data of the charge and distance features.
 
@@ -673,12 +673,12 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
         plt.xlabel("false positive rate", weight="bold")
         plt.ylabel("true positive rate", weight="bold")
         plt.title(
-            "Multi-class classification ROC for %s features" % feature, weight="bold"
+            f"{data_set_type}_multi-class classification ROC for %s features" % feature, weight="bold"
         )
         plt.legend(loc="best")
         extensions = ["svg", "png"]
         for ext in extensions:
-            plt.savefig("mlp_roc_" + feature + f".{ext}", bbox_inches="tight", format=ext, dpi=300)
+            plt.savefig(f"mlp_{data_set_type}_roc_" + feature + f".{ext}", bbox_inches="tight", format=ext, dpi=300)
 
 
 def plot_confusion_matrices(cms, mimos):
@@ -891,25 +891,39 @@ def run_mlp(data_split_type, include_esp, n_epochs, hyperparams):
     layers_charge = {'charge': create_layers(n_charge, n_neurons_charge)}
     mlp_cls_charge, train_loss_per_epoch_charge, val_loss_per_epoch_charge = train("charge", layers_charge, lr_charge, n_epochs, l2_charge, train_loader, val_loader, 'cpu')
 
-    # Combine the results back together for efficient analysis
+    # Save models
+    torch.save(mlp_cls_dist['dist'].state_dict(), 'mlp_cls_dist.pth')
+    torch.save(mlp_cls_charge['charge'].state_dict(), 'mlp_cls_charge.pth')
+
+
+    # Evaluate model on the test data
     mlp_cls = {**mlp_cls_dist, **mlp_cls_charge}
     train_loss_per_epoch = {**train_loss_per_epoch_dist, **train_loss_per_epoch_charge}
     val_loss_per_epoch = {**val_loss_per_epoch_dist, **val_loss_per_epoch_charge}
     plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch)
-    
-    # Evaluate model on test data
     test_loss, y_true_dist, y_pred_proba_dist, y_pred, cms_dist = evaluate_model("dist", mlp_cls, test_loader, 'cpu', mimos)
     test_loss, y_true_charge, y_pred_proba_charge, y_pred, cms_charge = evaluate_model("charge", mlp_cls, test_loader, 'cpu', mimos)
-
     # Combine values back together
     y_true = {**y_true_dist, **y_true_charge}
     y_pred_proba = {**y_pred_proba_dist, **y_pred_proba_charge}
     cms = {**cms_dist, **cms_charge}
 
     # Plot ROC-AUC curves, confusion matrices and SHAP dot plots
-    plot_roc_curve(y_true, y_pred_proba, mimos)
+    data_set_type = "Test"
+    plot_roc_curve(y_true, y_pred_proba, mimos, data_set_type)
     plot_confusion_matrices(cms, mimos)
     shap_analysis(mlp_cls, train_loader, test_loader, val_loader, df_dist, df_charge, mimos)
+
+    # Evaluate the model on the training data
+    train_loss, y_true_train_dist, y_pred_proba_train_dist, y_pred_train, cms_train_dist = evaluate_model("dist", mlp_cls, train_loader, 'cpu', mimos)
+    train_loss, y_true_train_charge, y_pred_proba_train_charge, y_pred_train, cms_train_charge = evaluate_model("charge", mlp_cls, train_loader, 'cpu', mimos)
+    y_true_train = {**y_true_train_dist, **y_true_train_charge}
+    y_pred_proba_train = {**y_pred_proba_train_dist, **y_pred_proba_train_charge}
+
+    # Plot ROC-AUC curves for training data
+    data_set_type = "Train"
+    plot_roc_curve(y_true_train, y_pred_proba_train, mimos, data_set_type)
+
 
     # Clean up the newly generated files
     mlp_dir = "MLP"

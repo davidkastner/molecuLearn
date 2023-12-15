@@ -4,6 +4,7 @@ import os
 import sys
 import shap
 import shutil
+from joblib import dump
 import numpy as np
 import pandas as pd
 import seaborn as sn
@@ -292,6 +293,10 @@ def train_random_forest(feature, data_split, n_estimators, max_depth, min_sample
         data_split[feature]["X_train"], data_split[feature]["y_train"]
     )
 
+    # Save the model
+    model_filename = f"rf_model_{feature}.joblib"
+    dump(rf_cls[feature], model_filename)
+
     return rf_cls
 
 
@@ -376,7 +381,7 @@ def plot_data(df_charge, df_dist, mimos):
         plt.savefig(f"rf_data.{ext}", bbox_inches="tight", format=ext, dpi=300)
 
 
-def plot_roc_curve(y_true, y_pred_proba, mimos):
+def plot_roc_curve(y_true, y_pred_proba, mimos, data_set_type):
     """
     Plot the ROC curve for the test data of the charge and distance features.
 
@@ -430,7 +435,7 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
         plt.legend(loc="best")
         extensions = ["svg", "png"]
         for ext in extensions:
-            plt.savefig("rf_roc_" + feature + f".{ext}", bbox_inches="tight", format=ext, dpi=300)
+            plt.savefig(f"rf_{data_set_type}_roc_" + feature + f".{ext}", bbox_inches="tight", format=ext, dpi=300)
 
 
 def plot_confusion_matrices(cms, mimos):
@@ -580,14 +585,25 @@ def rf_analysis(data_split_type, include_esp, hyperparams):
     feature = "charge"
     rf_cls_charge = train_random_forest(feature, data_split, n_estimators, max_depth, min_samples_split, min_samples_leaf)
 
-    # Combine the results back together for efficient analysis
-    rf_cls = {**rf_cls_dist, **rf_cls_charge}
-
     # Evaluate classifiers and generate plots
+    data_set_type = "Test"
+    rf_cls = {**rf_cls_dist, **rf_cls_charge}
     cms,y_true, y_pred_proba = evaluate(rf_cls, data_split, mimos)
-    plot_roc_curve(y_true, y_pred_proba, mimos)
+    plot_roc_curve(y_true, y_pred_proba, mimos, data_set_type)
     plot_confusion_matrices(cms, mimos)
     plot_gini_importance(rf_cls, df_dist, df_charge)
+
+
+    # Prepare the training data for evaluation
+    train_data_split = {
+        'dist': {'X_test': data_split['dist']['X_train'], 'y_test': data_split['dist']['y_train']},
+        'charge': {'X_test': data_split['charge']['X_train'], 'y_test': data_split['charge']['y_train']}
+    }
+
+    # Evaluate classifiers on training data
+    data_set_type = "Train"
+    cms_train, y_true_train, y_pred_proba_train = evaluate(rf_cls, train_data_split, mimos)
+    plot_roc_curve(y_true_train, y_pred_proba_train, mimos, data_set_type)
 
     # Clean up the newly generated files
     rf_dir = "RF"
@@ -617,11 +633,18 @@ def train_random_forest_with_optimization(data_split, param_grid, out_name):
 
 def hyperparam_opt(data_split_type, include_esp, out_name):
     param_grid = {
-        'n_estimators': [55, 60, 65, 75, 90, 95, 100, 105, 110, 125, 135, 150, 175, 190, 200, 210, 215, 220, 225],
+        'n_estimators': [45, 50, 55, 60, 65, 75, 90, 95, 100, 105, 110, 125, 135, 150, 175, 190, 200, 210, 215, 220, 225],
         'max_depth': [None, 20, 25, 30, 35, 40, 45, 50, 55, 60],
-        'min_samples_split': [3, 4, 5, 6, 7, 8],
-        'min_samples_leaf': [3, 4, 6, 5, 7, 8],
+        'min_samples_split': [2, 3, 4, 5, 6, 7, 8],
+        'min_samples_leaf': [2, 3, 4, 6, 5, 7, 8],
     }
+
+    # param_grid = {
+    #     'n_estimators': [215, 220, 225, 230, 235, 240, 245, 250, 255, 260, 265, 270],
+    #     'max_depth': [None, 5, 10, 15, 20, 25, 30, 35],
+    #     'min_samples_split': [1, 2],
+    #     'min_samples_leaf': [1, 2],
+    # }
 
     mimos = ['mc6', 'mc6s', 'mc6sa']
     data_loc = os.getcwd()

@@ -143,6 +143,9 @@ def cli(
         elif data_split_type == 2 and include_esp == "T":                
             hyperparams = [{"max_depth":None, "mins_samples_leaf":3, "min_samples_split":3, "n_estimators":55},
                            {"max_depth":40, "mins_samples_leaf":3, "min_samples_split":4, "n_estimators":105}] 
+        elif data_split_type == 2 and include_esp == "F":                
+            hyperparams = [{"max_depth":None, "mins_samples_leaf":2, "min_samples_split":2, "n_estimators":45},
+                           {"max_depth":20, "mins_samples_leaf":2, "min_samples_split":2, "n_estimators":215}] 
         else:
             click.echo("No precomputed hyperparameters for this option.")
 
