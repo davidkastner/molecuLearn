@@ -4,6 +4,7 @@ import os
 import sys
 import shap
 import shutil
+from joblib import dump
 import numpy as np
 import pandas as pd
 import seaborn as sn
@@ -18,7 +19,7 @@ from sklearn.preprocessing import StandardScaler, LabelBinarizer
 np.set_printoptions(threshold=sys.maxsize)
 
 
-def load_data(mimos, data_loc):
+def load_data(mimos, include_esp, data_loc):
     """
     Load data from CSV files for each mimo in the given list.
 
@@ -48,6 +49,11 @@ def load_data(mimos, data_loc):
         # Load charge data from CSV file and store in dictionary
         df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charge_esp.csv")
         df_charge[mimo] = df_charge[mimo].drop(columns=["replicate"])
+        
+        # Option to include the ESP features
+        include_esp = include_esp.strip().lower()
+        if include_esp not in ['t', 'true', True]:
+            df_charge[mimo].drop(columns=["upper", "lower"], inplace=True)
 
         # Load distance data from CSV file and store in dictionary
         df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distance.csv")
@@ -287,6 +293,10 @@ def train_random_forest(feature, data_split, n_estimators, max_depth, min_sample
         data_split[feature]["X_train"], data_split[feature]["y_train"]
     )
 
+    # Save the model
+    model_filename = f"rf_model_{feature}.joblib"
+    dump(rf_cls[feature], model_filename)
+
     return rf_cls
 
 
@@ -371,7 +381,7 @@ def plot_data(df_charge, df_dist, mimos):
         plt.savefig(f"rf_data.{ext}", bbox_inches="tight", format=ext, dpi=300)
 
 
-def plot_roc_curve(y_true, y_pred_proba, mimos):
+def plot_roc_curve(y_true, y_pred_proba, mimos, data_set_type):
     """
     Plot the ROC curve for the test data of the charge and distance features.
 
@@ -410,11 +420,13 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
                 tpr[j],
                 color=color,
                 lw=2,
-                label="ROC curve (area = %0.2f) for class %s" % (roc_auc[j], mimos[j]),
+                label="%s ROC (AUC = %0.2f)" % (mimos[j], roc_auc[j]),
             )
         plt.plot([0, 1], [0, 1], "k--", lw=2)
         plt.xlim([-0.05, 1.0])
         plt.ylim([0.0, 1.05])
+        plt.gca().set_aspect("equal", adjustable="box")
+        plt.axis("square")
         plt.xlabel("false positive rate", weight="bold")
         plt.ylabel("true positive rate", weight="bold")
         plt.title(
@@ -423,7 +435,7 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
         plt.legend(loc="best")
         extensions = ["svg", "png"]
         for ext in extensions:
-            plt.savefig("rf_roc_" + feature + f".{ext}", bbox_inches="tight", format=ext, dpi=300)
+            plt.savefig(f"rf_{data_set_type}_roc_" + feature + f".{ext}", bbox_inches="tight", format=ext, dpi=300)
 
 
 def plot_confusion_matrices(cms, mimos):
@@ -463,78 +475,6 @@ def plot_confusion_matrices(cms, mimos):
         plt.savefig(f"rf_cm.{ext}", bbox_inches="tight", format=ext, dpi=300)
 
 
-def shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos):
-    """
-    Plot SHAP dot plots for each mimichrome.
-
-    Plots are generated for both charge and distance features.
-    Identifies contribution of each feature to the prediction for a specific instance.
-
-    Parameters
-    ----------
-    rf_cls : dict
-        Dictionary containing trained RF classifiers for distance and charge features
-    data_split : dict
-        Dictionary containing the training and testing data for distance and charge features.
-    df_dist : dict
-        Dictionary of DataFrames containing distance data for each MIMO type.
-    df_charge : dict
-        Dictionary of DataFrames containing charge data for each MIMO type.
-    mimos : list
-        List of MIMO types, e.g. ['mc6', 'mc6s', 'mc6sa']
-    
-    """
-    features = ["dist", "charge"]
-
-    df = {"dist": df_dist, "charge": df_charge}
-
-    shap_values = {}
-    test = {}
-    for i, feature in enumerate(features):
-        # Load in a random batch from the test dataloader and interpret predictions for 156 data points
-        test_features = data_split[feature]["X_test"]
-        # Define the first 100 datapoints as the background used as reference when calculating SHAP values
-        background = test_features[:100]
-        test[feature] = test_features[-156:]  # Same number of test data points as MLP
-        explainer = shap.TreeExplainer(rf_cls[feature], data=background)
-        shap_values[feature] = explainer.shap_values(test[feature])
-
-    # For each mimichrome, plot the SHAP values as dot plots
-    for i in range(len(mimos)):
-        # Each mimichrome has two datasets: charges and features
-        fig, axs = plt.subplots(1, 2, figsize=(20, 5))
-        for j, ax in enumerate(axs):
-            plt.sca(ax)
-            shap.summary_plot(
-                shap_values[features[j]][i],
-                test[features[j]],
-                feature_names=df[features[j]][mimos[i]].columns.to_list(),
-                show=False,
-            )
-            axs[j].set_title(f"{features[j]}, {mimos[i]}", fontweight="bold")
-        extensions = ["svg", "png"]
-        for ext in extensions:
-            plt.savefig(f"rf_shap_{mimos[i]}.{ext}", bbox_inches="tight", format=ext, dpi=300)
-
-    # Get the summary SHAP plots that combine feature importance for all classes
-    fig, axs = plt.subplots(1, 2, figsize=(15, 5))
-    for j, feature in enumerate(features):
-        plt.sca(axs[j])
-        shap.summary_plot(
-            shap_values[feature],
-            test[feature],
-            feature_names=df[feature]["mc6"].columns.to_list(),
-            plot_type="bar",
-            show=False,
-            plot_size=(15, 5),
-            class_names=mimos,
-        )
-        axs[j].set_title(f"{feature}", fontweight="bold")
-    extensions = ["svg", "png"]
-    for ext in extensions:
-        plt.savefig(f"rf_shap_combined.{ext}", bbox_inches="tight", format=ext, dpi=300)
-
-
 def plot_gini_importance(rf_cls, df_dist, df_charge):
     """
     Plot Gini importance bar plots for the top 20 features for each feature type.
@@ -559,15 +499,25 @@ def plot_gini_importance(rf_cls, df_dist, df_charge):
     fig, axs = plt.subplots(1, 2, figsize=(20, 5))
     for i, feature in enumerate(features):
         # Obtain importances from the trained model attribute and sort
-        gini_importance[feature] = rf_cls[feature].feature_importances_
+        gini_importance[feature] = rf_cls[feature].feature_importances_  
         sorted_indices = np.argsort(gini_importance[feature])[::-1]
         top_indices = sorted_indices[:20]
-        top_gini_importance[feature] = gini_importance[feature][top_indices]
+        top_gini_importance[feature] = gini_importance[feature][top_indices] # Printing this will give y axis values in Gini bar plot (top 20)
         # Get corresponding feature names
         all_feature_names = df[feature][
             "mc6"
         ].columns.to_list()  # All mimo classes havev same feature labels
-        top_feature_names[feature] = [all_feature_names[j] for j in top_indices]
+        top_feature_names[feature] = [all_feature_names[j] for j in top_indices] # Printing this will give x axis values in Gini bar plot (top 20)
+
+        # Print gini scores for charge features
+        if feature == "charge":
+            gini_arr = []
+            for name, gini_score in zip(all_feature_names, gini_importance[feature]):
+                gini_arr.append([name, gini_score])
+            gini_arr = np.array(gini_arr)
+            col_names = ["residue", "gini_score"]
+            gini_df = pd.DataFrame(gini_arr, columns=col_names)
+            gini_df.to_csv("rf_charge_gini_scores.csv", index=False)
 
         axs[i].bar(
             range(len(top_gini_importance[feature])),
@@ -607,12 +557,12 @@ def format_plots() -> None:
     plt.rcParams["ytick.right"] = True
     plt.rcParams["svg.fonttype"] = "none"
 
-def rf_analysis(data_split_type):
+def rf_analysis(data_split_type, include_esp, hyperparams):
     # Get datasets
     format_plots()
     mimos = ['mc6', 'mc6s', 'mc6sa']
     data_loc = os.getcwd()
-    df_charge, df_dist = load_data(mimos, data_loc)
+    df_charge, df_dist = load_data(mimos, include_esp, data_loc)
     plot_data(df_charge, df_dist, mimos)
 
     # Preprocess the data and split into train and test sets
@@ -620,30 +570,40 @@ def rf_analysis(data_split_type):
     # data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.875)
 
     # Dist hyperparameters
-    n_estimators=50
-    max_depth=None
-    min_samples_split=2
-    min_samples_leaf=2
+    max_depth = hyperparams[0]["max_depth"]
+    min_samples_leaf = hyperparams[0]["mins_samples_leaf"]
+    min_samples_split = hyperparams[0]["min_samples_split"]
+    n_estimators = hyperparams[0]["n_estimators"]
     feature = "dist"
     rf_cls_dist = train_random_forest(feature, data_split, n_estimators, max_depth, min_samples_split, min_samples_leaf)
 
     # Charge hyperparameters
-    n_estimators=150
-    max_depth=35
-    min_samples_split=6
-    min_samples_leaf=2
+    max_depth = hyperparams[1]["max_depth"]
+    min_samples_leaf = hyperparams[1]["mins_samples_leaf"]
+    min_samples_split = hyperparams[1]["min_samples_split"]
+    n_estimators = hyperparams[1]["n_estimators"]
     feature = "charge"
     rf_cls_charge = train_random_forest(feature, data_split, n_estimators, max_depth, min_samples_split, min_samples_leaf)
 
-    # Combine the results back together for efficient analysis
-    rf_cls = {**rf_cls_dist, **rf_cls_charge}
-
     # Evaluate classifiers and generate plots
+    data_set_type = "Test"
+    rf_cls = {**rf_cls_dist, **rf_cls_charge}
     cms,y_true, y_pred_proba = evaluate(rf_cls, data_split, mimos)
-    plot_roc_curve(y_true, y_pred_proba, mimos)
+    plot_roc_curve(y_true, y_pred_proba, mimos, data_set_type)
     plot_confusion_matrices(cms, mimos)
-    shap_analysis(rf_cls, data_split, df_dist, df_charge, mimos)
     plot_gini_importance(rf_cls, df_dist, df_charge)
+
+
+    # Prepare the training data for evaluation
+    train_data_split = {
+        'dist': {'X_test': data_split['dist']['X_train'], 'y_test': data_split['dist']['y_train']},
+        'charge': {'X_test': data_split['charge']['X_train'], 'y_test': data_split['charge']['y_train']}
+    }
+
+    # Evaluate classifiers on training data
+    data_set_type = "Train"
+    cms_train, y_true_train, y_pred_proba_train = evaluate(rf_cls, train_data_split, mimos)
+    plot_roc_curve(y_true_train, y_pred_proba_train, mimos, data_set_type)
 
     # Clean up the newly generated files
     rf_dir = "RF"
@@ -656,42 +616,58 @@ def rf_analysis(data_split_type):
         if file.startswith("rf_"):
             shutil.move(file, os.path.join(rf_dir, file))
 
-def train_random_forest_with_optimization(data_split, param_grid):
+def train_random_forest_with_optimization(data_split, param_grid, out_name):
     rf_cls = {}
     features = ["dist", "charge"]
 
-    with open("rf_hyperopt.txt", "w") as f:
+    with open(f"rf_hyperopt_{out_name}.txt", "w") as f:
         for feature in features:
             rf = RandomForestClassifier()
             grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, 
                                        cv=3, verbose=2, n_jobs=48, scoring='accuracy')
             grid_search.fit(data_split[feature]["X_train"], data_split[feature]["y_train"])
             rf_cls[feature] = grid_search.best_estimator_
-            f.write(f"Best parameters for {feature} are: {grid_search.best_params_}\n")
+            f.write(f"Best parameters for {feature} are: {grid_search.best_params_}\nBest validation loss: {grid_search.best_score_}\n")
 
     return rf_cls
 
-def hyperparam_opt(data_split_type):
+def hyperparam_opt(data_split_type, include_esp, out_name):
     param_grid = {
-        'n_estimators': [50, 60, 75, 90, 100, 110, 125, 135, 150, 175, 190, 200, 210, 225],
-        'max_depth': [None, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
-        'min_samples_split': [3, 4, 5, 6, 7, 8, 10],
-        'min_samples_leaf': [3, 4, 6, 5, 7, 8, 10],
+        'n_estimators': [45, 50, 55, 60, 65, 75, 90, 95, 100, 105, 110, 125, 135, 150, 175, 190, 200, 210, 215, 220, 225],
+        'max_depth': [None, 20, 25, 30, 35, 40, 45, 50, 55, 60],
+        'min_samples_split': [2, 3, 4, 5, 6, 7, 8],
+        'min_samples_leaf': [2, 3, 4, 6, 5, 7, 8],
     }
+
+    # param_grid = {
+    #     'n_estimators': [215, 220, 225, 230, 235, 240, 245, 250, 255, 260, 265, 270],
+    #     'max_depth': [None, 5, 10, 15, 20, 25, 30, 35],
+    #     'min_samples_split': [1, 2],
+    #     'min_samples_leaf': [1, 2],
+    # }
 
     mimos = ['mc6', 'mc6s', 'mc6sa']
     data_loc = os.getcwd()
-    df_charge, df_dist = load_data(mimos, data_loc)
+    df_charge, df_dist = load_data(mimos, include_esp, data_loc)
 
     # Preprocess the data and split into train and test sets
     data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type)
-    # data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, test_frac=0.875)
 
     # Train a random forest classifier for each feature with hyperparameter optimization
-    train_random_forest_with_optimization(data_split, param_grid)
+    train_random_forest_with_optimization(data_split, param_grid, out_name)
 
 
 if __name__ == "__main__":
-    data_split_type = 1
-    # rf_analysis(data_split_type)
-    hyperparam_opt(data_split_type)
+    # Setting up argument parser
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Process input parameters.')
+    parser.add_argument('--data_split_type', type=int, default=1, 
+                        help='Type of data split to use. Default is 1.')
+    parser.add_argument('--include_esp', type=str, default='False',
+                        help='Whether to include ESP features.')
+    parser.add_argument('--out_name', type=str, default='RF',
+                        help='Adds distinguishing extension to out file.')
+    args = parser.parse_args()
+
+    hyperparam_opt(args.data_split_type, args.include_esp, args.out_name)

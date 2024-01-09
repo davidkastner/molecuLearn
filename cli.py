@@ -127,23 +127,58 @@ def cli(
         click.echo("> Run Random Forest model on the cleaned data:")
         click.echo("> Loading...")
         import ml.rf
-
+        
         # 1 splits each traj train/val/test; 2 splits all train/val/test
-        data_split_type = 2
-        ml.rf.rf_analysis(data_split_type)
-        # ml.rf.hyperparam_opt(data_split_type)
+        data_split_type = int(input("   > Intra- (1) or inter-trajectory (2) data split? "))
+        include_esp = input("   > Include ESP features (T/F)? ")
+
+        # Pre-optimized hyperparameter sets named as model_split_ESP
+        # [0] for distance and [1] for charge
+        if data_split_type == 1 and include_esp == "T":       
+            hyperparams = [{"max_depth":None, "mins_samples_leaf":3, "min_samples_split":3, "n_estimators":55},
+                           {"max_depth":35, "mins_samples_leaf":3, "min_samples_split":6, "n_estimators":100}]   
+        elif data_split_type == 1 and include_esp == "F":
+            hyperparams = [{"max_depth":None, "mins_samples_leaf":3, "min_samples_split":3, "n_estimators":55},
+                           {"max_depth":None, "mins_samples_leaf":3, "min_samples_split":3, "n_estimators":190}]    
+        elif data_split_type == 2 and include_esp == "T":                
+            hyperparams = [{"max_depth":None, "mins_samples_leaf":3, "min_samples_split":3, "n_estimators":55},
+                           {"max_depth":40, "mins_samples_leaf":3, "min_samples_split":4, "n_estimators":105}] 
+        elif data_split_type == 2 and include_esp == "F":                
+            hyperparams = [{"max_depth":None, "mins_samples_leaf":2, "min_samples_split":2, "n_estimators":45},
+                           {"max_depth":20, "mins_samples_leaf":2, "min_samples_split":2, "n_estimators":215}] 
+        else:
+            click.echo("No precomputed hyperparameters for this option.")
+
+        ml.rf.rf_analysis(data_split_type, include_esp, hyperparams)
+        # ml.rf.hyperparam_opt(data_split_type) # Uncomment and comment previous for hyperopt
 
 
     elif mlp:
         click.echo("> Run MLP model on the cleaned data:")
         click.echo("> Loading...")
         import ml.mlp
-
+        
         # 1 splits each traj train/val/test; 2 splits all train/val/test
-        data_split_type = 2
-        ml.mlp.format_plots()
-        ml.mlp.run_mlp(data_split_type)
-        # ml.mlp.optuna_mlp(data_split_type, n_trials=500)
+        data_split_type = int(input("   > Intra- (1) or inter-trajectory (2) data split? "))
+        epochs = int(input("   > Epochs to run? "))
+        include_esp = input("   > Include ESP features (T/F)? ")
+
+        # Pre-optimized hyperparameter sets named as model_split_ESP
+        # [0] for distance and [1] for charge
+        if data_split_type == 1 and include_esp == "T":
+            hyperparams = [{"lr":4.24E-05, "l2":1.01E-06, "n_layers":2, "n_neurons":40},
+                           {"lr":1.73E-03, "l2":0.001853586, "n_layers":2, "n_neurons":148}]
+        elif data_split_type == 1 and include_esp == "F":            
+            hyperparams = [{"lr":0.001178084, "l2":2.51E-06, "n_layers":2, "n_neurons":214},
+                           {"lr":0.000808712, "l2":0.009929909, "n_layers":2, "n_neurons":157}]
+        elif data_split_type == 2 and include_esp == "T":
+            hyperparams = [{"lr":2.56E-06, "l2":7.92E-04, "n_layers":2, "n_neurons":77},
+                           {"lr":2.40E-05, "l2":0.001334242, "n_layers":2, "n_neurons":127}]
+        else:
+            click.echo("No precomputed hyperparameters for this option.")
+
+        ml.mlp.run_mlp(data_split_type, include_esp, epochs, hyperparams)
+        # ml.mlp.optuna_mlp(data_split_type, n_trials=500) # Uncomment and comment previous for hyperopt
 
 
     else:

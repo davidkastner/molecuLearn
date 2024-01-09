@@ -4,7 +4,9 @@ import os
 import shap
 import torch
 import optuna
+import math
 import shutil
+import argparse
 import numpy as np
 import pandas as pd
 import seaborn as sn
@@ -16,7 +18,7 @@ from sklearn.metrics import confusion_matrix, roc_curve, auc
 from sklearn.preprocessing import StandardScaler, LabelBinarizer
 
 
-def load_data(mimos, data_loc):
+def load_data(mimos, include_esp, data_loc):
     """
     Load data from CSV files for each mimo in the given list.
 
@@ -43,6 +45,11 @@ def load_data(mimos, data_loc):
         # Load charge data from CSV file and store in dictionary
         df_charge[mimo] = pd.read_csv(f"{data_loc}/{mimo}_charge_esp.csv")
         df_charge[mimo] = df_charge[mimo].drop(columns=["replicate"])
+        
+        # Option to include the ESP features
+        include_esp = include_esp.strip().lower()
+        if include_esp not in ['t', 'true', True]:
+            df_charge[mimo].drop(columns=["upper", "lower"], inplace=True)
 
         # Load distance data from CSV file and store in dictionary
         df_dist[mimo] = pd.read_csv(f"{data_loc}/{mimo}_pairwise_distance.csv")
@@ -264,7 +271,7 @@ def evaluate_model(feature, mlp_cls, test_dataloader, device, mimos):
         y_pred_proba[feature] = y_pred_proba_feature_specific
         y_pred[feature] = y_pred_feature_specific
         y_true[feature] = y_true_feature_specific
-        print(f"Mean test loss for {feature} MLP model: {np.array(losses).mean():.4f}")
+        print(f"   > Mean test loss for {feature} MLP model: {np.array(losses).mean():.4f}")
         test_loss[feature] = np.array(losses).mean()
 
         y_true_feature_specific = np.argmax(y_true_feature_specific, axis=1)
@@ -617,7 +624,7 @@ def plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch):
         plt.savefig(f"mlp_loss_v_epoch.{ext}", bbox_inches="tight", format=ext, dpi=300)
 
 
-def plot_roc_curve(y_true, y_pred_proba, mimos):
+def plot_roc_curve(y_true, y_pred_proba, mimos, data_set_type):
     """
     Plot the ROC curve for the test data of the charge and distance features.
 
@@ -656,20 +663,22 @@ def plot_roc_curve(y_true, y_pred_proba, mimos):
                 tpr[j],
                 color=color,
                 lw=2,
-                label="ROC curve (area = %0.2f) for class %s" % (roc_auc[j], mimos[j]),
+                label="%s ROC (AUC = %0.2f)" % (mimos[j], roc_auc[j]),
             )
         plt.plot([0, 1], [0, 1], "k--", lw=2)
         plt.xlim([-0.05, 1.0])
         plt.ylim([0.0, 1.05])
+        plt.gca().set_aspect("equal", adjustable="box")
+        plt.axis("square")
         plt.xlabel("false positive rate", weight="bold")
         plt.ylabel("true positive rate", weight="bold")
         plt.title(
-            "Multi-class classification ROC for %s features" % feature, weight="bold"
+            f"{data_set_type}_multi-class classification ROC for %s features" % feature, weight="bold"
         )
         plt.legend(loc="best")
         extensions = ["svg", "png"]
         for ext in extensions:
-            plt.savefig("mlp_roc_" + feature + f".{ext}", bbox_inches="tight", format=ext, dpi=300)
+            plt.savefig(f"mlp_{data_set_type}_roc_" + feature + f".{ext}", bbox_inches="tight", format=ext, dpi=300)
 
 
 def plot_confusion_matrices(cms, mimos):
@@ -709,7 +718,7 @@ def plot_confusion_matrices(cms, mimos):
         plt.savefig(f"mlp_cm.{ext}", bbox_inches="tight", format=ext, dpi=300)
 
 
-def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
+def shap_analysis(mlp_cls, train_loader, test_loader, val_loader, df_dist, df_charge, mimos):
     """
     Plot SHAP dot plots for each mimichrome to identify importance
 
@@ -717,8 +726,14 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
     ----------
     mlp_cls : dict
         Dict containing trained MLP classifiers for distance and charge features
+    train_loader : dict
+        Dict containing DataLoader object for the train data for distance
+        and charge features
     test_loader : dict
         Dict containing DataLoader object for the test data for distance
+        and charge features
+    val_loader : dict
+        Dict containing DataLoader object for the val data for distance
         and charge features
     df_dist : dict
         Dict of DataFrames containing distance data for each MIMO type.
@@ -735,14 +750,54 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
     shap_values = {}
     test = {}
     for i, feature in enumerate(features):
-        # Load in a random batch from the test dataloader and interpret predictions for 156 data points
-        batch = next(iter(test_loader[feature]))
-        data, _ = batch
-        # Define the first 100 datapoints as the background used as reference when calculating SHAP values
-        background = data[:100]
-        test[feature] = data[100:]
+        # Take in the provided data loader(s) and retrieve the entire dataset
+        # For now, function only takes in train_loader, but in the future, we
+        # can add val_loader and test_loader, iterate through each loader and
+        # append to all_data
+        all_data = None
+        for data, _ in train_loader[feature]:
+            if all_data is None:
+                all_data = data
+            else:
+                all_data = torch.cat((all_data, data), dim = 0)
+        
+        for data, _ in test_loader[feature]:
+            all_data = torch.cat((all_data, data), dim = 0)
+
+        for data, _ in val_loader[feature]:
+            all_data = torch.cat((all_data, data), dim = 0)
+        
+        print(f"This is the shape of the entire dataset {all_data.shape}")
+        
+        # The background is a subset of all_data. It takes evenly spaced points
+        # from all_data to recover a background comprising 100 data points.
+        spacing = math.ceil(all_data.shape[0] / 100)
+        background = all_data[::spacing]
+        print(f"This is the shape of the background {background.shape}")
+        # Use all_data to calculate SHAP values
+        test[feature] = all_data
+        # Deep Explainer:
         explainer = shap.DeepExplainer(mlp_cls[feature], background)
         shap_values[feature] = explainer.shap_values(test[feature])
+        # Print out mean of absolute shap values for each charge/mimochrome
+        # combination
+        if feature == "charge":
+            charge_mean_shap_vals = []
+            for mimo_arr in shap_values[feature]:
+                mimo_arr = np.transpose(mimo_arr)
+                mimo_mean_shap_arr = []
+                for charge_feature in mimo_arr:
+                    mimo_mean_shap_arr.append(np.mean(np.abs(charge_feature)))
+                charge_mean_shap_vals.append(mimo_mean_shap_arr)
+
+            charge_mean_shap_vals = np.transpose(np.array(charge_mean_shap_vals))
+            row_labels = df[feature][mimos[0]].columns.to_list()
+            column_labels = mimos
+            header_row = "," + ",".join(column_labels)
+            charge_mean_shap_vals_with_labels = [f"{row_label}," + ",".join(map(str, row)) for row_label, row in zip(row_labels, charge_mean_shap_vals)]
+            shap_values_csv_content = "\n".join([header_row] + charge_mean_shap_vals_with_labels)
+            with open('mlp_charge_mean_abs_shap_values.csv', 'w') as file:
+                file.write(shap_values_csv_content)
 
     # For each mimichrome, plot the SHAP values as dot plots
     for i in range(len(mimos)):
@@ -760,6 +815,7 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
         extensions = ["svg", "png"]
         for ext in extensions:
             plt.savefig(f"mlp_shap_{mimos[i]}.{ext}", bbox_inches="tight", format=ext, dpi=300)
+
 
     # Get the summary SHAP plots that combine feature importance for all classes
     fig, axs = plt.subplots(1, 2, figsize=(15, 5))
@@ -780,6 +836,158 @@ def shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos):
     extensions = ["svg", "png"]
     for ext in extensions:
         plt.savefig(f"{file_name}.{ext}", bbox_inches="tight", format=ext, dpi=300)
+
+
+class MDDataset(torch.utils.data.Dataset):
+    def __init__(self, X, y):
+        self.X = torch.Tensor(np.array(X))  # store X as a pytorch Tensor
+        self.y = torch.Tensor(np.array(y))  # store y as a pytorch Tensor
+        self.len = len(self.X)  # number of samples in the data
+
+    def __getitem__(self, index):
+        return self.X[index], self.y[index]
+
+    def __len__(self):
+        return self.len
+
+def create_layers(input_size, n_neurons):
+    return (torch.nn.Linear(input_size, n_neurons), torch.nn.ReLU(), 
+            torch.nn.Linear(n_neurons, n_neurons), torch.nn.ReLU(), 
+            torch.nn.Linear(n_neurons, n_neurons), torch.nn.ReLU(), 
+            torch.nn.Linear(n_neurons, 3))
+
+
+def run_mlp(data_split_type, include_esp, n_epochs, hyperparams):
+
+    # Get datasets
+    format_plots()
+    mimos = ["mc6", "mc6s", "mc6sa"]
+    data_loc = os.getcwd()
+    df_charge, df_dist = load_data(mimos, include_esp, data_loc)
+    plot_data(df_charge, df_dist, mimos)
+
+    # Preprocess the data and split into train, validation, and test sets
+    data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type)
+    # data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.75, test_frac=0.875)
+
+    # Build the train, validation, and test dataloaders
+    train_loader, val_loader, test_loader = build_dataloaders(data_split)
+
+    # Get input sizes for each dataset and build model architectures
+    n_dist = data_split['dist']['X_train'].shape[1]
+    n_charge = data_split['charge']['X_train'].shape[1]
+    
+    # Distance hyperparameters
+    lr_dist = hyperparams[0]["lr"]
+    l2_dist = hyperparams[0]["l2"]
+    n_neurons_dist = hyperparams[0]["n_neurons"]
+    layers_dist = {'dist': create_layers(n_dist, n_neurons_dist)}
+    mlp_cls_dist, train_loss_per_epoch_dist, val_loss_per_epoch_dist = train("dist", layers_dist, lr_dist, n_epochs, l2_dist, train_loader, val_loader, 'cpu')
+
+    # Charge hyperparameters
+    lr_charge = hyperparams[1]["lr"]
+    l2_charge = hyperparams[1]["l2"]
+    n_neurons_charge = hyperparams[1]["n_neurons"]
+    layers_charge = {'charge': create_layers(n_charge, n_neurons_charge)}
+    mlp_cls_charge, train_loss_per_epoch_charge, val_loss_per_epoch_charge = train("charge", layers_charge, lr_charge, n_epochs, l2_charge, train_loader, val_loader, 'cpu')
+
+    # Save models
+    torch.save(mlp_cls_dist['dist'].state_dict(), 'mlp_cls_dist.pth')
+    torch.save(mlp_cls_charge['charge'].state_dict(), 'mlp_cls_charge.pth')
+
+
+    # Evaluate model on the test data
+    mlp_cls = {**mlp_cls_dist, **mlp_cls_charge}
+    train_loss_per_epoch = {**train_loss_per_epoch_dist, **train_loss_per_epoch_charge}
+    val_loss_per_epoch = {**val_loss_per_epoch_dist, **val_loss_per_epoch_charge}
+    plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch)
+    test_loss, y_true_dist, y_pred_proba_dist, y_pred, cms_dist = evaluate_model("dist", mlp_cls, test_loader, 'cpu', mimos)
+    test_loss, y_true_charge, y_pred_proba_charge, y_pred, cms_charge = evaluate_model("charge", mlp_cls, test_loader, 'cpu', mimos)
+    # Combine values back together
+    y_true = {**y_true_dist, **y_true_charge}
+    y_pred_proba = {**y_pred_proba_dist, **y_pred_proba_charge}
+    cms = {**cms_dist, **cms_charge}
+
+    # Plot ROC-AUC curves, confusion matrices and SHAP dot plots
+    data_set_type = "Test"
+    plot_roc_curve(y_true, y_pred_proba, mimos, data_set_type)
+    plot_confusion_matrices(cms, mimos)
+    shap_analysis(mlp_cls, train_loader, test_loader, val_loader, df_dist, df_charge, mimos)
+
+    # Evaluate the model on the training data
+    train_loss, y_true_train_dist, y_pred_proba_train_dist, y_pred_train, cms_train_dist = evaluate_model("dist", mlp_cls, train_loader, 'cpu', mimos)
+    train_loss, y_true_train_charge, y_pred_proba_train_charge, y_pred_train, cms_train_charge = evaluate_model("charge", mlp_cls, train_loader, 'cpu', mimos)
+    y_true_train = {**y_true_train_dist, **y_true_train_charge}
+    y_pred_proba_train = {**y_pred_proba_train_dist, **y_pred_proba_train_charge}
+
+    # Plot ROC-AUC curves for training data
+    data_set_type = "Train"
+    plot_roc_curve(y_true_train, y_pred_proba_train, mimos, data_set_type)
+
+
+    # Clean up the newly generated files
+    mlp_dir = "MLP"
+    # Create the "rf/" directory if it doesn't exist
+    if not os.path.exists(mlp_dir):
+        os.makedirs(mlp_dir)
+
+    # Move all files starting with "rf_" into the "rf/" directory
+    for file in os.listdir():
+        if file.startswith("mlp_"):
+            shutil.move(file, os.path.join(mlp_dir, file))
+
+
+def train_with_hyperparameters(trial, feature, train_loader, val_loader, n_dist, n_charge):
+    # Hyperparameters
+    n_epochs = 200
+    lr = trial.suggest_float('lr', 1e-6, 1e-2, log=True)  
+    l2 = trial.suggest_float('l2', 1e-6, 1e-2, log=True)  
+    n_layers = trial.suggest_int('n_layers', 2, 4)  # Number of hidden layers
+    n_neurons = trial.suggest_int('n_neurons', 32, 256)  # Neurons per layer
+    
+    n_input = {'dist': n_dist, 'charge': n_charge}
+    layers_list = [torch.nn.Linear(n_input[feature], n_neurons), torch.nn.ReLU()]
+    for _ in range(n_layers):
+        layers_list.extend([torch.nn.Linear(n_neurons, n_neurons), torch.nn.ReLU()])
+    layers_list.append(torch.nn.Linear(n_neurons, 3))  # Output layer
+
+    layers = {feature: tuple(layers_list)}
+
+    mlp_cls, train_loss_per_epoch, val_loss_per_epoch = train(feature, layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
+
+    return val_loss_per_epoch[feature][-1]
+
+
+def optuna_mlp(data_split_type, include_esp, n_trials, out_name):
+    # Get datasets
+    features = ["dist", "charge"]
+    mimos = ["mc6", "mc6s", "mc6sa"]
+    data_loc = os.getcwd()
+    df_charge, df_dist = load_data(mimos, include_esp, data_loc)
+
+    # Preprocess the data and split into train, validation, and test sets
+    data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type)
+    # data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.75, test_frac=0.875)
+
+    # Build the train, validation, and test dataloaders
+    train_loader, val_loader, test_loader = build_dataloaders(data_split)
+
+    # Get input sizes for each dataset and build model architectures
+    n_dist = data_split['dist']['X_train'].shape[1]
+    n_charge = data_split['charge']['X_train'].shape[1]
+
+    filename = f"mlp_hyperopt_{out_name}.txt"
+    with open(filename, 'w') as file:
+        for feature in features:
+            study = optuna.create_study(direction='minimize')
+            study.optimize(lambda trial: train_with_hyperparameters(trial, feature, train_loader, val_loader, n_dist, n_charge), n_trials)
+            
+            best_params = study.best_params
+            best_loss = study.best_value
+
+            print(f"Feature: {feature}", file=file)
+            print(f"Best parameters: {best_params}", file=file)
+            print(f"Best validation loss: {best_loss}\n", file=file)
 
 
 def format_plots() -> None:
@@ -803,148 +1011,19 @@ def format_plots() -> None:
     plt.rcParams["svg.fonttype"] = "none"
 
 
-class MDDataset(torch.utils.data.Dataset):
-    def __init__(self, X, y):
-        self.X = torch.Tensor(np.array(X))  # store X as a pytorch Tensor
-        self.y = torch.Tensor(np.array(y))  # store y as a pytorch Tensor
-        self.len = len(self.X)  # number of samples in the data
-
-    def __getitem__(self, index):
-        return self.X[index], self.y[index]
-
-    def __len__(self):
-        return self.len
-
-
-def run_mlp(data_split_type):
-
-    # Get datasets
-    format_plots()
-    mimos = ["mc6", "mc6s", "mc6sa"]
-    data_loc = os.getcwd()
-    df_charge, df_dist = load_data(mimos, data_loc)
-    plot_data(df_charge, df_dist, mimos)
-
-    # Preprocess the data and split into train, validation, and test sets
-    data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type)
-    # data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.75, test_frac=0.875)
-
-    # Build the train, validation, and test dataloaders
-    train_loader, val_loader, test_loader = build_dataloaders(data_split)
-
-    # Get input sizes for each dataset and build model architectures
-    n_dist = data_split['dist']['X_train'].shape[1]
-    n_charge = data_split['charge']['X_train'].shape[1]
-    
-    layers = {'dist': (torch.nn.Linear(n_dist, 33), torch.nn.ReLU(), 
-                    torch.nn.Linear(33, 33), torch.nn.ReLU(), 
-                    torch.nn.Linear(33, 33), torch.nn.ReLU(), 
-                    torch.nn.Linear(33, 3)),
-        'charge': (torch.nn.Linear(n_charge, 148), torch.nn.ReLU(), 
-                    torch.nn.Linear(148, 148), torch.nn.ReLU(), 
-                    torch.nn.Linear(148, 148), torch.nn.ReLU(), 
-                    torch.nn.Linear(148, 3))
-        }
-    
-    # Distance hyperparameters
-    lr = 1.72e-04
-    n_epochs = 50
-    l2 = 7.81e-05
-    mlp_cls_dist, train_loss_per_epoch_dist, val_loss_per_epoch_dist = train("dist", layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
-
-    # Charge hyperparameters
-    lr = 1.07e-04
-    n_epochs = 50
-    l2 = 0.0033
-    mlp_cls_charge, train_loss_per_epoch_charge, val_loss_per_epoch_charge = train("charge", layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
-
-
-    # Combine the results back together for efficient analysis
-    mlp_cls = {**mlp_cls_dist, **mlp_cls_charge}
-    train_loss_per_epoch = {**train_loss_per_epoch_dist, **train_loss_per_epoch_charge}
-    val_loss_per_epoch = {**val_loss_per_epoch_dist, **val_loss_per_epoch_charge}
-    plot_train_val_losses(train_loss_per_epoch, val_loss_per_epoch)
-    
-    # Evaluate model on test data
-    test_loss, y_true_dist, y_pred_proba_dist, y_pred, cms_dist = evaluate_model("dist", mlp_cls, test_loader, 'cpu', mimos)
-    test_loss, y_true_charge, y_pred_proba_charge, y_pred, cms_charge = evaluate_model("charge", mlp_cls, test_loader, 'cpu', mimos)
-
-    # Combine values back together
-    y_true = {**y_true_dist, **y_true_charge}
-    y_pred_proba = {**y_pred_proba_dist, **y_pred_proba_charge}
-    cms = {**cms_dist, **cms_charge}
-
-    # Plot ROC-AUC curves, confusion matrices and SHAP dot plots
-    plot_roc_curve(y_true, y_pred_proba, mimos)
-    plot_confusion_matrices(cms, mimos)
-    shap_analysis(mlp_cls, test_loader, df_dist, df_charge, mimos)
-
-    # Clean up the newly generated files
-    mlp_dir = "MLP"
-    # Create the "rf/" directory if it doesn't exist
-    if not os.path.exists(mlp_dir):
-        os.makedirs(mlp_dir)
-
-    # Move all files starting with "rf_" into the "rf/" directory
-    for file in os.listdir():
-        if file.startswith("mlp_"):
-            shutil.move(file, os.path.join(mlp_dir, file))
-
-
-def train_with_hyperparameters(trial, feature, train_loader, val_loader, n_dist, n_charge):
-    # Hyperparameters
-    n_epochs = 100
-    lr = trial.suggest_float('lr', 1e-6, 1e-2, log=True)  
-    l2 = trial.suggest_float('l2', 1e-6, 1e-2, log=True)  
-    n_layers = trial.suggest_int('n_layers', 2, 4)  # Number of hidden layers
-    n_neurons = trial.suggest_int('n_neurons', 32, 256)  # Neurons per layer
-    
-    n_input = {'dist': n_dist, 'charge': n_charge}
-    layers_list = [torch.nn.Linear(n_input[feature], n_neurons), torch.nn.ReLU()]
-    for _ in range(n_layers):
-        layers_list.extend([torch.nn.Linear(n_neurons, n_neurons), torch.nn.ReLU()])
-    layers_list.append(torch.nn.Linear(n_neurons, 3))  # Output layer
-
-    layers = {feature: tuple(layers_list)}
-
-    mlp_cls, train_loss_per_epoch, val_loss_per_epoch = train(feature, layers, lr, n_epochs, l2, train_loader, val_loader, 'cpu')
-
-    return val_loss_per_epoch[feature][-1]
-
-
-def optuna_mlp(data_split_type, n_trials):
-    # Get datasets
-    features = ["dist", "charge"]
-    mimos = ["mc6", "mc6s", "mc6sa"]
-    data_loc = os.getcwd()
-    df_charge, df_dist = load_data(mimos, data_loc)
-
-    # Preprocess the data and split into train, validation, and test sets
-    data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type)
-    # data_split, df_dist, df_charge = preprocess_data(df_charge, df_dist, mimos, data_split_type, val_frac=0.75, test_frac=0.875)
-
-    # Build the train, validation, and test dataloaders
-    train_loader, val_loader, test_loader = build_dataloaders(data_split)
-
-    # Get input sizes for each dataset and build model architectures
-    n_dist = data_split['dist']['X_train'].shape[1]
-    n_charge = data_split['charge']['X_train'].shape[1]
-
-    filename = "mlp_hyperopt.txt"
-    with open(filename, 'w') as file:
-        for feature in features:
-            study = optuna.create_study(direction='minimize')
-            study.optimize(lambda trial: train_with_hyperparameters(trial, feature, train_loader, val_loader, n_dist, n_charge), n_trials)
-            
-            best_params = study.best_params
-            best_loss = study.best_value
-
-            print(f"Feature: {feature}", file=file)
-            print(f"Best parameters: {best_params}", file=file)
-            print(f"Best validation loss: {best_loss}\n", file=file)
-
-
-
 if __name__ == "__main__":
-    data_split_type = 1
-    optuna_mlp(data_split_type, 750)
+    # Setting up argument parser
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Process input parameters.')
+    parser.add_argument('--n_trials', type=int, default=500,
+                        help='The number of trials for optuna_mlp')
+    parser.add_argument('--data_split_type', type=int, default=1, 
+                        help='Type of data split to use. Default is 1.')
+    parser.add_argument('--include_esp', type=str, default='False',
+                        help='Whether to include ESP features.')
+    parser.add_argument('--out_name', type=str, default='MLP',
+                        help='Adds distinguishing extension to out file.')
+    args = parser.parse_args()
+
+    optuna_mlp(args.data_split_type, args.include_esp, args.n_trials, args.out_name)
