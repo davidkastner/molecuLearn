@@ -1,46 +1,57 @@
 """Command-line interface (CLI) entry point."""
 
-# Print first to welcome the user while it waits to load the modules
-print("\n.-------------------------------------.")
-print("| WELCOME TO THE MOLECULEARN (ML) CLI |")
-print(".-------------------------------------.")
-print("Default programmed actions for the molecuLearn package.")
-print("GitHub: https://github.com/davidkastner/moleculearn")
-print("Documenation: https://moleculearn.readthedocs.io\n")
+def welcome():
+    """Print first to welcome the user while it waits to load the modules"""
+    print("\n")
+    print("            ╔═══════════════════════════════╗        ")
+    print("            ║  ______ _____   ___           ║        ")
+    print("            ║ |\   __ \ __  \|\  \          ║        ")
+    print("            ║ \ \  \ \__\ \  \ \  \         ║        ")
+    print("            ║  \ \  \|__|  \  \ \  \        ║        ")
+    print("            ║   \ \  \    \ \  \ \  \____   ║        ")
+    print("            ║    \ \__\    \ \__\ \_______\ ║        ")
+    print("            ║     \|__|     \|__|\|_______| ║        ")
+    print("            ║                               ║        ")
+    print("            ║                               ║        ")
+    print("            ║      MOLECULEARN (ML)         ║        ")
+    print("            ║   [moleculearn.rtfd.io]       ║        ")
+    print("            ╚═══════════════╗╔══════════════╝        ")
+    print("                    ╔═══════╝╚═══════╗               ")
+    print("                    ║ THE KULIK LAB  ║               ")
+    print("                    ╚═══════╗╔═══════╝               ")
+    print("  ╔═════════════════════════╝╚══════════════════════╗")
+    print("  ║ Code: github.com/davidkastner/moleculearn       ║")
+    print("  ║ Docs: moleculearn.readthedocs.io                ║")
+    print("  ║    - RF model: ml -rf                           ║")
+    print("  ║    - MLP model: ml -mlp                         ║")
+    print("  ╚═════════════════════════════════════════════════╝\n")
+
+# Greet the user with the welcome screen
+welcome()
 
 import os
-import shutil
 import click
 
 @click.command()
-@click.option("--pairwise_distances", "-pd", is_flag=True, help="Compute pairwise distances.")
-@click.option("--combine_qm_charges", "-cq", is_flag=True, help="Combine charge data across QM single points.")
-@click.option("--pairwise_charge_features", "-pq", is_flag=True, help="Create pairwise charge features.")
-@click.option("--final_charge_dataset", "-fq", is_flag=True, help="Calculate final charge datasest.")
-@click.option("--calc_esp", "-ce", is_flag=True, help="Calculates ESP from Multiwfn output.")
-@click.option("--charge_esp_dataset", "-qed", is_flag=True, help="Creates dataset with ESP features.")
-@click.option("--random_forest", "-rf", is_flag=True, help="Run RF workflow.")
-@click.option("--mlp", "-mlp", is_flag=True, help="Run MLP workflow.")
+@click.option("--pairwise_distances", "-pd", is_flag=True, help="Compute pairwise distances")
+@click.option("--combine_qm_charges", "-cq", is_flag=True, help="Combine charge data across QM data")
+@click.option("--pairwise_features", "-pf", is_flag=True, help="Create pairwise features")
+@click.option("--final_charge_dataset", "-fq", is_flag=True, help="Calculate final charge datasest")
+@click.option("--calc_esp", "-ce", is_flag=True, help="Calculates ESP from Multiwfn output")
+@click.option("--charge_esp_dataset", "-qe", is_flag=True, help="Creates dataset with ESP features")
+@click.option("--random_forest", "-rf", is_flag=True, help="Run RF workflow")
+@click.option("--mlp", "-mp", is_flag=True, help="Run MLP workflow")
+@click.help_option("--help", "-h", is_flag=True, help="List of all moleculearn key words")
 def cli(
     pairwise_distances,
     combine_qm_charges,
     final_charge_dataset,
-    pairwise_charge_features,
+    pairwise_features,
     calc_esp,
     charge_esp_dataset,
     random_forest,
     mlp,
     ):
-    """
-    The overall command-line interface (CLI) entry point.
-    The CLI interacts with the rest of the package.
-
-    A complete reference of molecuLearn functionality.
-    This is advantagous because it quickly introduces molecuLearn.
-    Specificaly, to the complete scope of available functionality.
-    It also improves long-term maintainability and readability.
-
-    """
     
     if pairwise_distances:
         click.echo("> Compute pairwise distances workflow:")
@@ -87,7 +98,7 @@ def cli(
         remove = sorted(mutations + caps)
         charges_df = ml.process.final_charge_dataset("all_charges.xls", "template.pdb", remove)
 
-    elif pairwise_charge_features:
+    elif pairwise_features:
         click.echo("> Generate pairwise charge data:")
         click.echo("> Loading...")
         import ml.process
@@ -174,11 +185,13 @@ def cli(
         elif data_split_type == 2 and include_esp == "T":
             hyperparams = [{"lr":2.56E-06, "l2":7.92E-04, "n_layers":2, "n_neurons":77},
                            {"lr":2.40E-05, "l2":0.001334242, "n_layers":2, "n_neurons":127}]
+        elif data_split_type == 2 and include_esp == "F":
+            hyperparams = [{"lr":2.445e-06, "l2":3.949e-06, "n_layers":2, "n_neurons":88},
+                           {"lr":2.6575e-06, "l2":0.00567, "n_layers":3, "n_neurons":136}]
         else:
             click.echo("No precomputed hyperparameters for this option.")
 
         ml.mlp.run_mlp(data_split_type, include_esp, epochs, hyperparams)
-        # ml.mlp.optuna_mlp(data_split_type, n_trials=500) # Uncomment and comment previous for hyperopt
 
 
     else:
