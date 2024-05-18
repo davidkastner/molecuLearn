@@ -64,8 +64,20 @@ autoapi_options = ['members',
                    'show-inheritance',
                    'show-module-summary',
                    'imported-members']
-napoleon_numpy_docstring = True  # Ensure Napoleon parses numpy-style docstrings
-napoleon_google_docstring = False  # Disable parsing of Google-style docstrings
+
+autosummary_generate = True
+autoapi_type = 'python'
+autoapi_dirs = ['../ml']
+autoapi_ignore = ["*/tests/*",
+                  "*_version.py"]
+
+autoapi_options = ['members',
+                   'undoc-members',
+                   'show-inheritance',
+                   'show-module-summary',
+                   'imported-members']
+
+napoleon_google_docstring = False
 napoleon_use_param = False
 napoleon_use_ivar = True
 

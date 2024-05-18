@@ -1,5 +1,0 @@
-1) Split type: Intra
-2) Epochs: 100
-3) Background size: 100 data points evenly spaced from the entire dataset (train, test, val sets combined)
-4) SHAP computed on entire dataset
-5) See mlp_charge_mean_abs_shap_values.csv for mean(|shap values|) for each charge feature
