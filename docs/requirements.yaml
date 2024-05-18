@@ -1,27 +1,25 @@
 name: docs
 channels:
-  - pytorch
-  - conda-forge
-  - defaults
 dependencies:
     # Base depends
-  - python
+  - python=3.8
   - pip
-    # Pip-only installs
+
+    # Package depends
+  - biopandas
+  - matplotlib
+  - mdanalysis
+  - numpy=1.23.5
+  - optuna
+  - pandas
+  - pytorch-cpu
+  - scikit-learn
+  - scipy
+  - seaborn
+  - shap
+
   - pip:
-    - biopandas
-    - click
-    - matplotlib
-    - mdanalysis
-    - numpy==1.23.5
-    - optuna
-    - pandas
-    - python==3.8
-    - pytorch-cpu
-    - scikit-learn
-    - scipy
-    - seaborn
-    - shap
+    # Pip-only installs
     - sphinx==6.2.1
     - sphinx-autoapi==3.0.0
     - https://github.com/revitron/revitron-sphinx-theme/archive/refs/tags/0.7.0.zip
