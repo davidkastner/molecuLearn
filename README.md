@@ -9,16 +9,17 @@ molecuLearn
 ## Table of Contents
 1. **Overview**
     * Introduction
-    * Purpose
-2. **Installation**
+2. **Quick Start**
+    * Accessing QA functions
+3. **Installation**
     * Installing molecuLearn
     * Prerequisites
-3. **What is included?**
+4. **What is included?**
     * File structure
-4. **Documentation**
+5. **Documentation**
     * Read the Docs
     * Examples
-5. **Developer Guide**
+6. **Developer Guide**
     * GitHub refresher
 
 
@@ -26,7 +27,12 @@ molecuLearn
 The objective of molecuLearn (mL), is to facilitate the application of machine learning to extract patterns from ab-initio molecular dynamics simulations.
 
 
-## 2. Installation
+## 2. Quick start
+![Welcome screen help options](docs/_static/welcome_help_demo.png)
+
+To get started, once `qa` has been installed, run `qa --help` or `qa -h` to see the available actions.
+
+## 3. Installation
 Install the package by running the follow commands inside the repository. This will perform a developmental version install. It is good practice to do this inside of a virtual environment. A yaml environmental file has been created to automate the installation of dependencies.
 
 ### Setup developing environment
@@ -58,7 +64,7 @@ alias ml='python /path/to/the/molecuLearn/cli.py
 ```
 
 
-## 3. What is included?
+## 4. What is included?
 ### File structure
 ```
 .
@@ -74,7 +80,7 @@ alias ml='python /path/to/the/molecuLearn/cli.py
 ```
 
 
-## 4. Documentation
+## 5. Documentation
 ### Run the following commands to update the ReadTheDocs site
 ```bash
 make clean
@@ -82,7 +88,7 @@ make html
 ```
 
 
-## 5. Developer guide
+## 6. Developer guide
 ### GitHub refresher for those who would like to contribute
 #### Push new changes
 ```bash

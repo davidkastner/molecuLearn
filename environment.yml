@@ -13,15 +13,11 @@ dependencies:
   - pandas
   - pip
   - python=3.8
-  - pytorch
+  - pytorch-cpu
   - scikit-learn
   - scipy
   - seaborn
-  - pip:
-    - shap==0.42.1
-    - sphinx_rtd_theme==1.1.1
-    - sphinx-autoapi
-    - https://github.com/revitron/revitron-sphinx-theme/archive/refs/tags/0.7.0.zip
+  - shap
 
 #### GPU INSTALL ATTEMPTS ####
 # conda create --name ml-gpu python=3.8
