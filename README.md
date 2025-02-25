@@ -125,7 +125,7 @@ git pull
 
 ### Copyright
 
-Copyright (c) 2023, David W. Kastner
+Copyright (c) 2024, David W. Kastner
 
 
 #### Acknowledgements
