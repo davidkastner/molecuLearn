@@ -30,7 +30,7 @@ The objective of molecuLearn (mL), is to facilitate the application of machine l
 ## 2. Quick start
 ![Welcome screen help options](docs/_static/welcome_help_demo.png)
 
-To get started, once `qa` has been installed, run `qa --help` or `qa -h` to see the available actions.
+To get started, once `ml` has been installed, run `ml --help` or `ml -h` to see the available actions.
 
 ## 3. Installation
 Install the package by running the follow commands inside the repository. This will perform a developmental version install. It is good practice to do this inside of a virtual environment. A yaml environmental file has been created to automate the installation of dependencies.
