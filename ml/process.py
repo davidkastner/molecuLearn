@@ -82,7 +82,7 @@ def combine_sp_xyz():
                         frame_count += 1
 
                 replicate_info.append(
-                    (int(replicate[:-1]), frame_count)
+                    (replicate[:-1], frame_count)
                 )  # Append replicate information
 
             # Go back and loop through all the other replicates
@@ -390,6 +390,7 @@ def xyz2pdb_traj() -> None:
                 element_name = line.strip("\n").split()[0]
             except:
                 print(f"> Script died at {line_count} -> '{line}'")
+                print("> Check if you remembered to add a TER line at the end of your PDB")
                 quit()
             pdb_line = pdb_file[atom - 2].strip()  # PDB is two behind the xyz
             if len(element_name) > 1:

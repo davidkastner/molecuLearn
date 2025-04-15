@@ -68,7 +68,7 @@ def cli(
         geometry_name = os.getcwd().split("/")[-1]
         infile = f"{geometry_name}_geometry.pdb"
         outfile = f"{geometry_name}_pairwise_distance.csv"
-        mutations = [2,19,22]
+        mutations = [2,19,23]
         caps = [0,15,16,27]
         remove = sorted(mutations + caps)
         ml.process.check_file_exists(f"{geometry_name}_geometry.pdb")
@@ -93,8 +93,10 @@ def cli(
         import ml.process
 
         # Remove non-shared amino acids and caps
-        mutations = [2,19,22]
+        mutations = [2,19,23]
+        click.echo(f"> Non-shared residues are: {mutations}")
         caps = [0,15,16,27]
+        click.echo(f"> Terminal caps are: {caps}")
         remove = sorted(mutations + caps)
         charges_df = ml.process.final_charge_dataset("all_charges.xls", "template.pdb", remove)
 
